@@ -1,0 +1,495 @@
+﻿// {{Depend : Akari}} //
+// {{Depend : Akari.Utilities}} //
+
+/* Namespace: Akari.Animation
+ * This sort of classes are helpers for creating animation.
+ */
+
+Akari.Animation = {};
+ 
+/* Static Class: Interpolation
+ * Provides functions for interpolating between numbers.
+ *
+ * Common parameters for functions in this class:
+ *
+ * t
+ *   A Number, time factor indicating position between the values.
+ * value1
+ *   A Number, the first value ( t = 0 ).
+ * value2
+ *   A Number, the second value ( t = 1 ).
+ */
+Akari.Animation.Interpolation =
+{
+  /* Function: dimension
+   * Creates a multidimensional interpolation based on given function.
+   *
+   * interpolation
+   *   The interpolation function to wrap.
+   */
+  dimension : function( interpolation )
+  {
+    return function( t, value1, value2 )
+    {
+      var result = [];
+      
+      for ( var i = 0; i < value1.length; i ++ )
+      {
+        result[ i ] = interpolation( t, value1[ i ], value2[ i ] );
+      }
+      
+      return result;
+    };
+  },
+  
+  /* Function: hold
+   * Holds value1
+   */
+  hold : function( t, value1, value2 )
+  {
+    return value1;
+  },
+  
+  /* Function: linear
+   * Interpolates in linear manner.
+   */
+  linear : function( t, value1, value2 )
+  {
+    return value1 + ( value2 - value1 ) * t;
+  },
+  
+  /* Function Group: cubic
+   * Interpolates in cubic manner.
+   */
+  cubic :
+  {
+    easeIn : function( t, value1, value2 )
+    {
+      return value1 + ( value2 - value1 ) * t * t * t;
+    },
+    easeOut : function( t, value1, value2 )
+    {
+      return Akari.Animation.Interpolation.cubic.easeIn( 1 - t, value2, value1 );
+    },
+    easeInOut : function( t, value1, value2 )
+    {
+      var midPoint = ( value1 + value2 ) / 2;
+      if ( t < 0.5 ) return Akari.Animation.Interpolation.cubic.easeIn( t * 2, value1, midPoint );
+      return Akari.Animation.Interpolation.cubic.easeOut( t * 2 - 1, midPoint, value2 );
+    },
+    easeOutIn : function( t, value1, value2 )
+    {
+      var midPoint = ( value1 + value2 ) / 2;
+      if ( t < 0.5 ) return Akari.Animation.Interpolation.cubic.easeOut( t * 2, value1, midPoint );
+      return Akari.Animation.Interpolation.cubic.easeIn( t * 2 - 1, midPoint, value2 );
+    }
+  },
+  
+  /* Function Group: quartic
+   * Interpolates in quartic manner.
+   */
+  quartic :
+  {
+    easeIn : function( t, value1, value2 )
+    {
+      return value1 + ( value2 - value1 ) * t * t * t * t;
+    },
+    easeOut : function( t, value1, value2 )
+    {
+      return Akari.Animation.Interpolation.quartic.easeIn( 1 - t, value2, value1 );
+    },
+    easeInOut : function( t, value1, value2 )
+    {
+      var midPoint = ( value1 + value2 ) / 2;
+      if ( t < 0.5 ) return Akari.Animation.Interpolation.quartic.easeIn( t * 2, value1, midPoint );
+      return Akari.Animation.Interpolation.quartic.easeOut( t * 2 - 1, midPoint, value2 );
+    },
+    easeOutIn : function( t, value1, value2 )
+    {
+      var midPoint = ( value1 + value2 ) / 2;
+      if ( t < 0.5 ) return Akari.Animation.Interpolation.quartic.easeOut( t * 2, value1, midPoint );
+      return Akari.Animation.Interpolation.quartic.easeIn( t * 2 - 1, midPoint, value2 );
+    }
+  },
+  
+  /* Function Group: quintic
+   * Interpolates in quintic manner.
+   */
+  quintic :
+  {
+    easeIn : function( t, value1, value2 )
+    {
+      return value1 + ( value2 - value1 ) * t * t * t * t * t;
+    },
+    easeOut : function( t, value1, value2 )
+    {
+      return Akari.Animation.Interpolation.quintic.easeIn( 1 - t, value2, value1 );
+    },
+    easeInOut : function( t, value1, value2 )
+    {
+      var midPoint = ( value1 + value2 ) / 2;
+      if ( t < 0.5 ) return Akari.Animation.Interpolation.quintic.easeIn( t * 2, value1, midPoint );
+      return Akari.Animation.Interpolation.quintic.easeOut( t * 2 - 1, midPoint, value2 );
+    },
+    easeOutIn : function( t, value1, value2 )
+    {
+      var midPoint = ( value1 + value2 ) / 2;
+      if ( t < 0.5 ) return Akari.Animation.Interpolation.quintic.easeOut( t * 2, value1, midPoint );
+      return Akari.Animation.Interpolation.quintic.easeIn( t * 2 - 1, midPoint, value2 );
+    }
+  },
+  
+  /* Function Group: exponential
+   * Interpolates in exponential manner.
+   */
+  exponential :
+  {
+    easeIn : function( t, value1, value2 )
+    {
+      return ( t === 0 ) ? value1 : value1 + ( value2 - value1 ) * Math.pow( 2, 10 * ( t - 1 ) );
+    },
+    easeOut : function( t, value1, value2 )
+    {
+      return Akari.Animation.Interpolation.exponential.easeIn( 1 - t, value2, value1 );
+    },
+    easeInOut : function( t, value1, value2 )
+    {
+      var midPoint = ( value1 + value2 ) / 2;
+      if ( t < 0.5 ) return Akari.Animation.Interpolation.exponential.easeIn( t * 2, value1, midPoint );
+      return Akari.Animation.Interpolation.exponential.easeOut( t * 2 - 1, midPoint, value2 );
+    },
+    easeOutIn : function( t, value1, value2 )
+    {
+      var midPoint = ( value1 + value2 ) / 2;
+      if ( t < 0.5 ) return Akari.Animation.Interpolation.exponential.easeOut( t * 2, value1, midPoint );
+      return Akari.Animation.Interpolation.exponential.easeIn( t * 2 - 1, midPoint, value2 );
+    }
+  },
+  
+  /* Function Group: back
+   * Interpolates in a overflowing manner.
+   *
+   * s
+   *   [default] 1.70158
+   *   Back factor.
+   */
+  back :
+  {
+    s : 1.70158,
+    easeIn : function( t, value1, value2 )
+    {
+      return ( value2 - value1 ) * t * t * (( Akari.Animation.Interpolation.back.s + 1 ) * t - Akari.Animation.Interpolation.back.s ) + value1;
+    },
+    easeOut : function( t, value1, value2 )
+    {
+      return Akari.Animation.Interpolation.back.easeIn( 1 - t, value2, value1 );
+    },
+    easeInOut : function( t, value1, value2 )
+    {
+      var midPoint = ( value1 + value2 ) / 2;
+      if ( t < 0.5 ) return Akari.Animation.Interpolation.back.easeIn( t * 2, value1, midPoint );
+      return Akari.Animation.Interpolation.back.easeOut( t * 2 - 1, midPoint, value2 );
+    },
+    easeOutIn : function( t, value1, value2 )
+    {
+      var midPoint = ( value1 + value2 ) / 2;
+      if ( t < 0.5 ) return Akari.Animation.Interpolation.back.easeOut( t * 2, value1, midPoint );
+      return Akari.Animation.Interpolation.back.easeIn( t * 2 - 1, midPoint, value2 );
+    }
+  }
+};
+
+/* Enum: KeyframeMode
+ * Modes of keyframe behaviors.
+ */
+Akari.Animation.KeyframeMode =
+{
+  // affectNext: The keyframe's function will be used when time is between this keyframe and the next.
+  affectNext : 0,
+  
+  // weightBlend: The keyframe's function and the next's will be used when time is between this keyframe and the next, according to weight settings and time factor.
+  weightBlend : 1,
+  
+  // useNext: The next keyframe's function will be used when time is between this keyframe and the next.
+  useNext : 2
+};
+ 
+/* Class: Keyframe
+ * A class describing a keyframe.
+ *
+ * time
+ *   Time (in milliseconds) the keyframe is at.
+ * value
+ *   Value of the keyframe.
+ * interpolation
+ *   [default] Interpolation.linear
+ *   Function used to interpolate between this value and the next.
+ * mode
+ *   [default] KeyframeMode.affectNext
+ *   Interpolation behavior of this keyframe.
+ * weight
+ *   [default] 1
+ *   Weight when KeyframeMode.weightBlend is used.
+ */
+Akari.Animation.Keyframe = function( params )
+{
+  return
+  {
+    time : params.time,
+    value : params.value,
+    interpolation : params.interpolation || Akari.Animation.Interpolation.linear,
+    mode : params.mode || Akari.Animation.KeyframeMode.affectNext,
+    weight : params.weight || 1,
+    
+    /* Function: clone
+     * Custom clone function.
+     */
+    clone : function()
+    {
+      return Keyframe( Akari.Utilities.Factory.clone( params ) );
+    }
+  };
+};
+ 
+/* Enum: KeyframesBindMode
+ * Modes of keyframe bind behaviors.
+ */
+Akari.Animation.KeyframesBindMode =
+{
+  // hold: Hold the value of the nearest keyframe when out of range.
+  hold : 0,
+  
+  // repeat: Repeat keyframes when out of range (last => second)
+  repeat : 1,
+  
+  // pingPong: Ping Pong keyframes when out of range.
+  pingPong : 2
+};
+ 
+/* Class: KeyframesBind
+ * An animation Binding using keyframes.
+ *
+ * keyframes
+ *   An Array containing keyframes to use, in time order.
+ * mode
+ *   [default] KeyframesBindMode.hold
+ *   Behavior when out of range.
+ */
+Akari.Animation.KeyframesBind = function( params )
+{
+  // Store information about range
+  var firstKeyframeTime = params.keyframes[ 0 ].time;
+  var lastKeyframeTime = params.keyframes[ params.keyframes.length - 1 ].time;
+  var duration = lastKeyframeTime - firstKeyframeTime;
+  
+  // Create function for out of range behavior
+  var applyRangeBehavior = null;
+  if ( params.mode === Akari.Animation.KeyframesBindMode.repeat )
+  {
+    applyRangeBehavior = function( time )
+    {
+      return firstKeyframeTime + ( time - firstKeyframeTime ) % ( duration );
+    };
+  }
+  else if ( params.mode === Akari.Animation.KeyframesBindMode.pingPong )
+  {
+    applyRangeBehavior = function( time )
+    {
+      // Modulate by double the duration
+      var ppTime = ( time - firstKeyframeTime ) % ( duration * 2 );
+      
+      // Check phase
+      if ( ppTime > duration )
+      {
+        return lastKeyframeTime - ppTime + duration;
+      }
+      else
+      {
+        return firstKeyframeTime + ppTime;
+      }
+    };
+  }
+  
+  // Function for finding the current keyframe index
+  var findCurrentIndex = function( time )
+  {
+    // Iterate through keyframes to find
+    var currentIndex = 0;
+    while( params.keyframes[ currentIndex + 1 ] && params.keyframes[ currentIndex + 1 ].time < time )
+      currentIndex ++;
+    
+    return currentIndex;
+  };
+  
+  // Return the binding function
+  return function( time )
+  {
+    // Apply behavior if exists
+    var newTime = applyRangeBehavior ? applyRangeBehavior( time ) : time;
+    
+    // Find the current keyframe
+    var currentIndex = findCurrentIndex( newTime );
+    var currentKey = params.keyframes[ currentIndex ];
+    var nextKey = params.keyframes[ currentIndex + 1 ];
+    
+    // Whether there is a next keyframe to interpolate
+    if ( nextKey )
+    {
+      // Calculate time factor
+      var tFactor = ( newTime - currentKey.time ) / ( nextKey.time - currentKey.time );
+      
+      // Check current keyframe's mode
+      if ( currentKey.mode === Akari.Animation.KeyframeMode.affectNext )
+      {
+        return currentKey.interpolation( tFactor, currentKey.value, nextKey.value );
+      }
+      else if ( currentKey.mode === Akari.Animation.KeyframeMode.useNext )
+      {
+        return nextKey.interpolation( tFactor, currentKey.value, nextKey.value );
+      }
+      else if ( currentKey.mode === Akari.Animation.KeyframeMode.weightBlend )
+      {
+        // First calculate using two functions
+        var value1 = currentKey.interpolation( tFactor, currentKey.value, nextKey.value );
+        var value2 = nextKey.interpolation( tFactor, currentKey.value, nextKey.value );
+        
+        // Calculate weights
+        var weight1 = currentKey.weight * ( 1 - tFactor );
+        var weight2 = nextKey.weight * tFactor;
+        
+        // Return a weighted average
+        return ( value1 * weight1 + value2 * weight2 ) / ( weight1 + weight2 );
+      }
+    }
+    else
+    {
+      // When there is not a next frame for some reason, just return the current value
+      return currentKey.value;
+    }
+  };
+};
+
+/* Class: WiggleKeyframes
+ * A set of keyframes that make a wiggle effect.
+ *
+ * origin
+ *   Number or Array of Numbers to wiggle upon.
+ * numSteps
+ *   Number of keyframes to generate.
+ * startTime
+ *   Time (in milliseconds) at which the wiggle starts.
+ * stepTime
+ *   Time (in milliseconds) each step will last for.
+ * amount
+ *   Strength of the effect.
+ * interpolation
+ *   [default] Interpolation.cubic.easeInOut
+ *   Function used to interpolate between values.
+ * returnCenter
+ *   [default] false
+ *   Indicated whether to return to center before every move
+ */
+Akari.Animation.WiggleKeyframes = function( params )
+{
+  // Private function for a random vector
+  var vectorRandom = function( n )
+  {
+    var result = [];
+    
+    for( var i = 0; i < n; i ++ )
+    {
+      result[ i ] = Math.random() - 0.5;
+    }
+    return result;
+  };
+  
+  // Private function for vector length
+  var vectorLength = function( vector )
+  {
+    var sum = 0;
+    
+    for( var i = 0; i < vector.length; i ++ )
+    {
+      sum += vector[ i ] * vector[ i ];
+    }
+    return Math.sqrt( sum );
+  };
+  
+  // Private function for scaling vector
+  var vectorScale = function( vector, scalar )
+  {
+    var result = [];
+    
+    for( var i = 0; i < vector.length; i ++ )
+    {
+      result[ i ] = vector[ i ] * scalar;
+    }
+    return result;
+  };
+  
+  // Private function for adding vector
+  var vectorAdd = function( vector1, vector2 )
+  {
+    var result = [];
+    
+    for( var i = 0; i < vector1.length; i ++ )
+    {
+      result[ i ] = vector1[ i ] + vector2[ i ];
+    }
+    return result;
+  };
+  
+  // Private function for randomizing with base
+  var randomize = function( origin )
+  {
+    if ( origin.hasOwnProperty("length") )
+    {
+      // Origin is an Array, use vector stuff
+      var randVector = vectorRandom( origin.length );
+      
+      // Scale vector to fit amount constraint
+      var scaledVector = vectorScale( randVector, params.amount / vectorLength( randVector ) );
+      
+      // Return result
+      return vectorAdd( origin, scaledVector );
+    }
+    else
+    {
+      // Origin is not Array, return a simple randomization
+      return origin + params.amount * ( Math.random() - 0.5 );
+    }
+  };
+  
+  // Loop randomizing
+  if ( params.returnCenter )
+  {
+    var keyframes = [];
+    for( var c = 0; c < params.numSteps; c ++ )
+    {
+      // Create keyframe
+      keyframes.push( Akari.Animation.Keyframe({ time : params.startTime + params.stepTime * c - 1, value : params.origin, interpolation : Akari.Animation.Interpolation.hold }) );
+      keyframes.push( Akari.Animation.Keyframe({ time : params.startTime + params.stepTime * c, value : randomize( params.origin ), interpolation : params.interpolation || Akari.Animation.Interpolation.cubic.easeInOut }) );
+    }
+    
+    // Repeat first for consistency
+    keyframes.push( Akari.Animation.Keyframe({ time : params.startTime + params.stepTime * ( ++ c ) - 1, value : params.origin, interpolation : Akari.Animation.Interpolation.hold }) );
+    
+    // Return keyframes
+    return keyframes;
+  }
+  else
+  {
+    var keyframes = [];
+    for( var c = 0; c < params.numSteps; c ++ )
+    {
+      // Create keyframe
+      keyframes.push( Akari.Animation.Keyframe({ time : params.startTime + params.stepTime * c, value : randomize( params.origin ), interpolation : params.interpolation || Akari.Animation.Interpolation.cubic.easeInOut }) );
+    }
+    
+    // Repeat first for consistency
+    keyframes.push( Akari.Animation.Keyframe({ time : params.startTime + params.stepTime * ( ++ c ), value : keyframes[ 0 ].value, interpolation : params.interpolation || Akari.Animation.Interpolation.cubic.easeInOut }) );
+    
+    // Return keyframes
+    return keyframes;
+  }
+};

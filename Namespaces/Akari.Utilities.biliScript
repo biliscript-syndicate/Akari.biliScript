@@ -1,0 +1,360 @@
+﻿// {{Depend : Akari}} //
+
+/* Namespace: Akari.Utilities
+ * Provide utilities not directly related to presenting content.
+ */
+Akari.Utilities = {};
+
+/* Static Class: Factory
+ * Provides functions for creating and manipulating objects.
+ * Legacy name used because this was once an actual factory. (See : 2012/11/21 Update)
+ */
+Akari.Utilities.Factory =
+{
+  /* Function: collapse
+   * Concats all arrays given into one.
+   *
+   * arrays
+   *   An Array of Arrays.
+   */
+  collapse : function( arrays )
+  {
+    var result = [];
+    
+    for ( var i = 0; i < arrays.length; i ++ )
+    {
+      result = result.concat( arrays[ i ] );
+    }
+    
+    return result;
+  },
+  
+  /* Function: extend
+   * Copies all properties from the source to the destination object.
+   *
+   * destination
+   *   Destination object.
+   * source
+   *   Source object.
+   */
+  extend : function( destination, source )
+  {
+    // Iterate through the source
+    foreach ( source, function( key, object )
+    {
+      destination[ key.toString() ] = object;
+    });
+    
+    return destination;
+  },
+  
+  /* Function: clone
+   * Clones an Object.
+   *
+   * object
+   *   The Object to clone.
+   */
+  clone : function( object )
+  {
+    // Check if the object contains a custom clone function for cloning private variables.
+    if ( object.hasOwnProperty( "clone" ) )
+    {
+      return object.clone();
+    }
+    else
+    {
+      // Iterate through the Object running this clone function
+      var newObject = {};
+      var countProperties = 0;
+      
+      foreach ( object, function( key, object )
+      {
+        countProperties ++;
+        
+        if ( typeof object === "function" )
+        {
+          newObject[ key ] = function() { return object.apply( newObject, arguments ); };
+        }
+        else
+        {
+          var adg = Factory.clone( object, newObject );
+          newObject[ key ] = adg;
+        }
+      });
+      
+      // Check if newObject is empty
+      if ( countProperties === 0 )
+      {
+        // Probably AS3 or an empty shit, make a clone first
+        newObject = clone( object );
+        
+        // Check if it's a DOC
+        if ( object.hasOwnProperty( "numChildren" ) )
+        {
+          // Clone all its children
+          for ( var i = 0; i < object.numChildren; i ++ )
+          {
+            newObject.addChild( Factory.clone( object.getChildAt( i ) ) );
+          }
+        }
+        
+        // Check if it's a Shape
+        if ( object.hasOwnProperty( "graphics" ) )
+        {
+          // Clone the Graphic's content
+          newObject.graphics.copyFrom( object.graphics );
+        }
+      }
+      
+      return newObject;
+    }
+  },
+  
+  /* Function: replicate
+   * Returns an Array of Objects created according to given params. 
+   *
+   * constructor
+   *   Constructor of the Class to replicate.
+   * count
+   *   Count of result Objects.
+   * paramsFunction
+   *   A Function accepting index as parameter, returning an Array of parameters.
+   */
+  replicate : function( constructor, count, paramsFunction )
+  {
+    // Create an Array
+    var objects = [];
+    
+    // Loop creating Objects
+    var i = 0;
+    for ( i = 0; i < count; i ++ )
+    {
+      var newParams;
+      
+      // Get parameters
+      newParams = paramsFunction ? paramsFunction( i ) : [];
+      
+      // Call constructor
+      objects.push( constructor.apply( this, newParams ) );
+    }
+    
+    // Return result
+    return objects;
+  }
+};
+
+/* Static Class: Timer
+ * Improves timing precision over Player.time by sampling time usage for each frame. For retaining both smoothness and seekability.
+ */
+Akari.Utilities.Timer = function()
+{
+  var lastTime = 0;
+  var deltaTime = 0;
+  var sampleCount = 1;
+  
+  return
+  {
+    time : 0,
+    
+    /* Function: update
+     * Counts a frame and updates time.
+     */
+    update : function()
+    {
+      if ( Player.time != lastTime )
+      {
+        // Make drastic change proof
+        if ( Math.abs( Player.time - lastTime ) < 1000 )
+        {
+          deltaTime = ( Player.time - lastTime ) / sampleCount;
+          lastTime = Player.time;
+          sampleCount = 1;
+          
+          this.time = Player.time;
+        }
+        else
+        {
+          // Reset Timer because of a possible seek (or just so laggy that Timer is not effective)
+          deltaTime = 0;
+          lastTime = Player.time;
+          sampleCount = 1;
+          
+          this.time = Player.time;
+        }
+      }
+      else
+      {
+        this.time = lastTime + deltaTime * sampleCount;
+        sampleCount ++;
+      }
+    }
+  };
+}();
+
+/* Class: Binder
+ * Provides functions for binding properties. Mainly used in layers.
+ *
+ * object
+ *   An Object to bind.
+ * properties
+ *   An Object, containing values or Bindings for each property.
+ */
+Akari.Utilities.Binder = function()
+{
+  var binderClass = function( params )
+  {
+    var needBinding = {};
+    
+    var pathCheck = function( object, name )
+    {
+      var dotIndex = name.indexOf(".");
+      if ( dotIndex < 0 )
+      {
+        return object.hasOwnProperty( name );
+      }
+      else
+      {
+        return object.hasOwnProperty( name.substring( 0, dotIndex ) ) && pathCheck( object[ name.substring( 0, dotIndex ) ], name.substring( dotIndex + 1 ));
+      }
+    };
+    
+    var setParam = function( object, name, value )
+    {
+      var dotIndex = name.indexOf(".");
+      if ( dotIndex < 0 )
+      {
+        object[ name ] = value;
+      }
+      else
+      {
+        setParam( object[ name.substring( 0, dotIndex ) ], name.substring( dotIndex + 1 ), value );
+      }
+    };
+    
+    var setBinding = function( name, value )
+    {
+      // Check if path exists
+      if ( !pathCheck( params.object, name ) )
+      {
+        return;
+      }
+      
+      // Check if binding every frame is needed
+      if ( typeof( value ) === "function" )
+      {
+        needBinding[ name ] = value;
+      }
+      else
+      {
+        setParam( params.object, name, value );
+      }
+    };
+    
+    var setBindings = function( key, obj )
+    {
+      // Check if objs are Links or Sequences
+      if ( obj.hasOwnProperty( "linkFunc" ) )
+      {
+        // Check if a function is present
+        if ( obj.linkFunc )
+        {
+          if ( typeof( params.properties[ obj.name.toString() ] ) === "function" )
+          {
+            setBinding( key, function( time )
+            {
+              var value = params.properties[ obj.name.toString() ].apply( this, [ time ] );
+              return obj.linkFunc.apply( this, [ value, time ] );
+            });
+          }
+          else
+          {
+            setBinding( key, function( time )
+            {
+              return obj.linkFunc.apply( this, [ params.properties[ obj.name.toString() ], time ] );
+            });
+          }
+        }
+        else
+        {
+          setBinding( key, params.properties[ obj.name.toString() ] );
+        }
+      }
+      else if ( obj.hasOwnProperty( "sequence" ) )
+      {
+        // Set sequence first
+        for ( var i = 0; i < obj.sequence.length; i ++ )
+        {
+          setBindings( obj.sequence[ i ][ 0 ], obj.sequence[ i ][ 1 ] );
+        }
+        
+        // Set value
+        setBindings( key, obj.value );
+      }
+      else
+      {
+        setBinding( key, obj );
+      }
+    };
+    
+    foreach( params.properties, setBindings );
+    
+    return
+    {
+      
+      /* Function: update
+       * Updates the object to fit the timeline.
+       *
+       * time
+       *   A Number, the current time (in milliseconds) on the Composition's timeline.
+       * scope
+       *   [default] object
+       *   An Object, scope under which the binded functions are called.
+       */
+      update : function( time, scope )
+      {
+        foreach( needBinding, function( key, obj )
+        {
+          // Pass the scope to function
+          setParam( params.object, key, obj.apply( scope || params.object, [ time ] ) );
+        });
+      }
+    };
+  };
+
+  /* Class: Binder.Link
+   * Represents a link between different properties.
+   *
+   * name
+   *   The name of the property to link.
+   * linkFunc
+   *   [default] null
+   *   A Function accepting input & time from binder or null indicating copy.
+   */
+  binderClass.Link = function( params )
+  {
+    return
+    {
+      name : params.name,
+      linkFunc : params.linkFunc || null
+    };
+  };
+
+  /* Class: Binder.Sequence
+   * Represents a sequential bind, for properties that depend on other properties that need to be set earlier.
+   *
+   * sequence
+   *   An Array containing name value pairs.
+   * value
+   *   The value of the property to set after executing sequence.
+   */
+  binderClass.Sequence = function( params )
+  {
+    return
+    {
+      sequence : params.sequence,
+      value : params.value
+    };
+  };
+  
+  return binderClass;
+}();

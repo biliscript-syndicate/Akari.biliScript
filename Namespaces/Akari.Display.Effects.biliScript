@@ -1,0 +1,117 @@
+﻿// {{Depend : Akari}} //
+// {{Depend : Akari.Utilities}} //
+// {{Depend : Akari.Display}} //
+
+/* Namespace: Akari.Display.Effects
+ * This sort of classes are effects that wrap around layers. Not to be confused with filters which should be set with Binders.
+ */
+
+Akari.Display.Effects = {};
+
+/* Class: TrackMatte
+ * Use another layer as a mask.
+ *
+ * layer
+ *   The Layer to be masked.
+ * mask
+ *   The mask Layer.
+ */
+Akari.Display.Effects.TrackMatte = function( params )
+{
+  // Add mask layer to display list and apply mask
+  params.layer.source.addChild( params.mask.source );
+  params.layer.source.mask = params.mask.source;
+  
+  // Simulate inheritance by making a backup of update function.
+  var baseUpdate = Akari.Utilities.Factory.cloneFunction( params.layer.update, params.layer );
+  
+  // Declare new update
+  params.layer.update = function( time )
+  {
+    // Update original layer and mask layer
+    baseUpdate( time );
+    params.mask.update( time );
+  };
+  
+  return params.layer;
+};
+
+/* Class: ForceMotionBlur
+ * An effect dedicated to create motion blur effects which Flash lacks. Use the effect with Replicator.
+ *
+ * layers
+ *   The Layers to use.
+ * exposureTime
+ *   [default] 20.8333
+ *   Exposure time (in milliseconds). Defaults to 1000/48 (double the Player frame rate).
+ * shutterPhase
+ *   [default] -90
+ *   Shutter phase in degrees.
+ */
+Akari.Display.Effects.ForceMotionBlur = function( params )
+{
+  // Default values
+  if ( !params.exposureTime ) params.exposureTime = 1000.0 / 48.0;
+  var shutterOffset = params.exposureTime * ( params.shutterPhase || -90.0 ) / 180.0;
+  
+  // Create a Sprite as container for objects
+  var canvas = Akari.Display.Sprite();
+  
+  // Clone an invisible original layer for preserving alpha and blend
+  var original = params.layers.shift();
+  
+  // Add sub-layers to display tree, calculate alpha values to avoid problem
+  var subLayers = params.layers;
+  var subAlphas = [];
+  var totalAlphaYet = 0;
+  var i = 0;
+  for ( i = 0; i < subLayers.length; i++ )
+  {
+    canvas.addChild( subLayers[ i ].source );
+    
+    // As for the internal 256 thing
+    var idealTotalAlpha = Math.ceil( 256 * ( i + 1 ) / subLayers.length );
+    var subAlpha = idealTotalAlpha - totalAlphaYet;
+    subAlphas.push( ( subAlpha + 1 ) / 256 );
+    totalAlphaYet += subAlpha;
+  }
+  
+  // Create a new layer, binding alpha and blendMode with original layer
+  var layer = Akari.Display.Layer(
+  {
+    source : canvas,
+    inPoint : original.inPoint,
+    outPoint : original.outPoint,
+    properties :
+    {
+      alpha : function( time ) { return original.source.alpha; },
+      blendMode : function( time ) { return original.source.blendMode; }
+    }
+  });
+  
+  // Simulate inheritance by making a backup of update function.
+  var baseUpdate = Akari.Utilities.Factory.cloneFunction( layer.update, layer );
+  
+  // Declare new update
+  layer.update = function( time )
+  {
+    // Update original layer to get binding work
+    original.update( time );
+    baseUpdate( time );
+    
+    // Update each layer included
+    var offset = 0;
+    foreach ( subLayers, function( key, object )
+    {
+      object.update( time + params.exposureTime * offset / subLayers.length + shutterOffset );
+      
+      // Manually set alpha and blendMode in case of bindings
+      object.source.alpha = subAlphas[ offset ];
+      object.source.blendMode = "add";
+      
+      offset ++;
+    });
+  };
+  
+  return layer;
+};
