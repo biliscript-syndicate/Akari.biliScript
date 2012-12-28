@@ -10,10 +10,13 @@ Akari.biliScript is an open source (also by nature of player scripts) helper for
 
 Akari.biliScript was originally written for Round and Round under the temporary name of "Comment Art Helper for submission Round and Round". It was renamed "Akari.biliScript" some time after the submission was made public.
 
-(I insist that all documentary and comments be in English by the way.)
+Getting
+-------
+
+If you are not satisfied by simply clicking a recent "processed" .biliScript, just download the repository, remove the namespaces you don't need (add ones you need), and drag Akari.Template.biliScript onto BiliScript.AkariBuilder.exe. You will get a Akari.biliScript whose contents you can just copy and post to 0:0. Currently you will have to have .net Framework 4.5 on your computer to run the executable (since it was originally just a tiny utility for myself).
 
 Akari.biliScript is not...
-----------------------
+--------------------------
 
 * A magic header/footer that will make your Comment Art attractive in a second.
   
