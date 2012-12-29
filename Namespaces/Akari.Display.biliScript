@@ -372,7 +372,7 @@ Akari.Display.Composition = function( params )
     height : params.height || $.height,
     startTime : params.startTime || 0,
     duration : params.duration || 60000,
-    layers : layers,
+    layers : Factory.collapse( layers ),
     canvas : canvas,
     
     /* Function: update
