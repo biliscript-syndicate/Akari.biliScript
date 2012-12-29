@@ -1,4 +1,4 @@
-О╩©
+
 /* Namespace: Akari
  * Contains several namespace level functions.
  */
@@ -58,8 +58,8 @@ Akari.root = function()
         {
           fontSize :
           {
-            fromValue : "р╙╤Юнчад",
-            toValue : "сп╤Юнчад",
+            fromValue : "р╙О©╫О©╫О©╫О©╫О©╫О©╫",
+            toValue : "О©╫п╤О©╫О©╫О©╫О©╫О©╫",
             lifeTime : 810114514,
             startDelay : 810114514
           }
