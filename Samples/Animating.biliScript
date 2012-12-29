@@ -1,0 +1,125 @@
+/* Sample: Animating
+ * Demonstrates usage of the binding feature for animations.
+ *
+ * The sample gives a quick glance into what the display system can do, and how you can create your own little crowd
+ * of dancing colorful blocks with less than 100 lines (comments excluded) of mostly human comprehensible descriptions.
+ */
+
+// Fetch a global reference for Akari
+var Akari = Global._get( "__akari" );
+
+// Import namespaces by extending this closure
+Akari.Utilities.Factory.extend( this, Akari.Utilities );
+Factory.extend( this, Akari.Display );
+Factory.extend( this, Akari.Animation );
+
+// Create a class for a simple composition with a solid moving along X-axis and rotating
+function SimpleComp()
+{
+  // Prepare a multidimensional interpolation function for later use
+  var dimensionCubic = Interpolation.dimension( Interpolation.cubic.easeInOut );
+
+  return Composition(
+  {
+    layers :
+    [
+      Layer(
+      {
+        // Specify a source for the layer. Sources are no more than DisplayObjects that do the actual rendering.
+        // We want Layers on those DisplayObjects to make our life easier.
+        source : Anchor({ source : Solid({ width : 100, height : 100, color : 0xFFFFFF }) }),
+        
+        // Specify Bindings. Bindings are simply values you want to assign to properties, or more frequently, functions that produce them.
+        // Akari.biliScript use Bindings because they are more analogous to human thinking, and because they are by nature seekable.
+        properties :
+        {
+          // Place a function on X-axis to make it move according to time
+          x : function( time ) { return ( Math.sin( time * Math.PI / 1000 ) + 1 ) * 300; },
+          
+          // Place a function on rotation
+          rotation : function( time ) { return time / 8; },
+          
+          // For static properties just put a value here
+          y : 0,
+          
+          // For properties like color that cannot be interpolated by a simple function,
+          // use nonexistent binds and links to separate it into stages.
+          
+          // The first nonexistent bind should work like a normal binding.
+          // KeyframesBind is a helper for animating by keyframes.
+          "colorTriad" : KeyframesBind(
+          {
+            keyframes :
+            [
+              // The Solid will start white.
+              Keyframe({ time : 0, value : [ 255, 255, 255 ], interpolation : dimensionCubic }),
+              
+              // Then be tinted in three colors.
+              Keyframe({ time : 1000, value : [ 255, 128, 128 ], interpolation : dimensionCubic }),
+              Keyframe({ time : 2000, value : [ 128, 255, 128 ], interpolation : dimensionCubic }),
+              Keyframe({ time : 3000, value : [ 128, 128, 255 ], interpolation : dimensionCubic }),
+              
+              // While finally returning white and ready for the next loop.
+              Keyframe({ time : 4000, value : [ 255, 255, 255 ], interpolation : dimensionCubic })
+            ],
+            
+            // This mode repeats the keyframes automatically
+            mode : KeyframesBindMode.repeat
+          }),
+          
+          // Then a Binder.Link is used to convert the triad to what Flash accept.
+          // Value of the property being linked is provided to the function specified.
+          "transform.colorTransform" : Binder.Link(
+          {
+            name : "colorTriad",
+            linkFunc : function( value, time )
+            {
+              var ct = $.createColorTransform();
+              ct.color = Utils.rgb( value[ 0 ], value[ 1 ], value[ 2 ] );
+              
+              return ct;
+            }
+          })
+        }
+      })
+    ]
+  });
+}
+
+// Create a MainComposition for putting this on the screen
+var mainComp = MainComposition(
+{
+  // Sizes can be arbitrary, for Akari.biliScript will fit anything into the window.
+  width : 1280,
+  height : 720,
+  
+  // Use Factory.replicate to create a group of CompositionLayers containing SimpleComps.
+  // Factory.replicate will take a constructor and a function that produces parameters for it.
+  layers : Factory.replicate( CompositionLayer, 24, function( i )
+  {
+    return
+    [{
+      composition : SimpleComp(),
+      inPoint : 0,
+      outPoint : 60000,
+      
+      // Use inPointTime and outPointTime to change speeds of the SimpleComps.
+      // No worrying about frames stuff since everything is calculated with a continous timeline. (But caution when you use Force Motion Blur!)
+      // Here we use a parameter provided by the replicate function, which is the index of the instance being created.
+      inPointTime : i * 500,
+      outPointTime : 60000,
+      
+      // Notice how children of the CompositionLayer get affected by those settings.
+      properties :
+      {
+        // Center the layer and add some rotation to it.
+        x : 640,
+        y : 360,
+        rotation : function( time ) { return i * 15 + time / 16; }
+      }
+    }];
+  })
+});
+
+// That's it! Time to see it in action.
+Akari.execute( mainComp );
