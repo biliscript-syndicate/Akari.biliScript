@@ -119,7 +119,7 @@ Akari.Display.DynamicVectorTextLayer = function( params )
   });
   
   // Simulate inheritance by making a backup of update function.
-  var baseUpdate = Akari.Utilities.Factory.cloneFunction( layer.update, layer );
+  var baseUpdate = Akari.Utilities.Factory.clone( layer.update, layer );
   
   // Declare new update
   layer.update = function( time )
@@ -283,7 +283,7 @@ Akari.Display.CompositionLayer = function( params )
   });
   
   // Simulate inheritance by making a backup of update function.
-  var baseUpdate = Akari.Utilities.Factory.cloneFunction( layer.update, layer );
+  var baseUpdate = Akari.Utilities.Factory.clone( layer.update, layer );
   
   // Declare new update regarding nested Composition timeline.
   // Declare different functions according to having timeRemap or not to improve performance.
@@ -493,7 +493,7 @@ Akari.Display.MainComposition = function( params )
   };
   
   // Declare new update for update time stuff
-  var baseUpdate = Akari.Utilities.Factory.cloneFunction( composition.update, composition );
+  var baseUpdate = Akari.Utilities.Factory.clone( composition.update, composition );
   
   composition.update = function( time )
   {

@@ -54,12 +54,17 @@ Akari.Utilities.Factory =
    * object
    *   The Object to clone.
    */
-  clone : function( object )
+  clone : function( object, scope )
   {
     // Check if the object contains a custom clone function for cloning private variables.
     if ( object.hasOwnProperty( "clone" ) )
     {
       return object.clone();
+    }
+    else if ( typeof object === "function" )
+    {
+      // Object is a function
+      return function() { return object.apply( scope, arguments ); };
     }
     else
     {
@@ -77,7 +82,7 @@ Akari.Utilities.Factory =
         }
         else
         {
-          var adg = Factory.clone( object, newObject );
+          var adg = Factory.clone( object );
           newObject[ key ] = adg;
         }
       });

@@ -1,0 +1,1875 @@
+/* Akari - v20121229
+ * Copyright (C) 2012 EPM
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * For a copy of the GNU General Public License,
+ * see <http://www.gnu.org/licenses/>.
+ *
+ * Documenting convention:
+ *
+ * For those functions that accept only one Object "params", only the content of the Object is documented.
+ */
+
+
+/* Namespace: Akari
+ * Contains several namespace level functions.
+ */
+Akari = {};
+
+/* Function: execute
+ * Sets off the helper script running.
+ *
+ * mainComp
+ *   The MainComposition of the Comment Art to present.
+ */
+Akari.execute = function( mainComp )
+{
+  // Create a global reference so that the main composition could be accessed in ExpressionBinds
+  Global._set( "__mainComp_akari", mainComp );
+  
+  // Present the main composition
+  mainComp.present();
+  
+  // Set global value to indicate usage
+  Global._set( "__isExecuted_akari", true );
+};
+
+/* Function: stop
+ * Stops the helper for debug use
+ */
+Akari.stop = function()
+{
+  ( Global._get("__mainComp_akari") ).detach();
+  Global._set( "__mainComp_akari", null );
+  Global._set( "__isExecuted_akari", null );
+};
+
+/* Function: isExecuted
+ * See if the helper is already running
+ */
+Akari.isExecuted = function()
+{
+  return ( Global._get("__isExecuted_akari") === true );
+};
+
+/* Property: root
+ * A safe replacement for $.root in case it get banned
+ */
+Akari.root = function()
+{
+  if( $.hasOwnProperty("root") && $.root )
+  {
+    return $.root;
+  }
+  else
+  {
+    var sprite = $.createCanvas(
+    {
+      lifeTime : 810114514,
+      motionGroup : [
+        {
+          fontSize :
+          {
+            fromValue : "Ҫ������",
+            toValue : "�ж�����",
+            lifeTime : 810114514,
+            startDelay : 810114514
+          }
+        }
+      ]
+    });
+    
+    // remove 3D to make it clear by default
+    sprite.transform.matrix3D = null;
+    
+    return sprite;
+  }
+}();
+
+/* Namespace: Akari.Utilities
+ * Provide utilities not directly related to presenting content.
+ */
+Akari.Utilities = {};
+
+/* Static Class: Factory
+ * Provides functions for creating and manipulating objects.
+ * Legacy name used because this was once an actual factory. (See : 2012/11/21 Update)
+ */
+Akari.Utilities.Factory =
+{
+  /* Function: collapse
+   * Concats all arrays given into one.
+   *
+   * arrays
+   *   An Array of Arrays.
+   */
+  collapse : function( arrays )
+  {
+    var result = [];
+    
+    for ( var i = 0; i < arrays.length; i ++ )
+    {
+      result = result.concat( arrays[ i ] );
+    }
+    
+    return result;
+  },
+  
+  /* Function: extend
+   * Copies all properties from the source to the destination object.
+   *
+   * destination
+   *   Destination object.
+   * source
+   *   Source object.
+   */
+  extend : function( destination, source )
+  {
+    // Iterate through the source
+    foreach ( source, function( key, object )
+    {
+      destination[ key.toString() ] = object;
+    });
+    
+    return destination;
+  },
+  
+  /* Function: clone
+   * Clones an Object.
+   *
+   * object
+   *   The Object to clone.
+   */
+  clone : function( object, scope )
+  {
+    // Check if the object contains a custom clone function for cloning private variables.
+    if ( object.hasOwnProperty( "clone" ) )
+    {
+      return object.clone();
+    }
+    else if ( typeof object === "function" )
+    {
+      // Object is a function
+      return function() { return object.apply( scope, arguments ); };
+    }
+    else
+    {
+      // Iterate through the Object running this clone function
+      var newObject = {};
+      var countProperties = 0;
+      
+      foreach ( object, function( key, object )
+      {
+        countProperties ++;
+        
+        if ( typeof object === "function" )
+        {
+          newObject[ key ] = function() { return object.apply( newObject, arguments ); };
+        }
+        else
+        {
+          var adg = Factory.clone( object );
+          newObject[ key ] = adg;
+        }
+      });
+      
+      // Check if newObject is empty
+      if ( countProperties === 0 )
+      {
+        // Probably AS3 or an empty shit, make a clone first
+        newObject = clone( object );
+        
+        // Check if it's a DOC
+        if ( object.hasOwnProperty( "numChildren" ) )
+        {
+          // Clone all its children
+          for ( var i = 0; i < object.numChildren; i ++ )
+          {
+            newObject.addChild( Factory.clone( object.getChildAt( i ) ) );
+          }
+        }
+        
+        // Check if it's a Shape
+        if ( object.hasOwnProperty( "graphics" ) )
+        {
+          // Clone the Graphic's content
+          newObject.graphics.copyFrom( object.graphics );
+        }
+      }
+      
+      return newObject;
+    }
+  },
+  
+  /* Function: replicate
+   * Returns an Array of Objects created according to given params. 
+   *
+   * constructor
+   *   Constructor of the Class to replicate.
+   * count
+   *   Count of result Objects.
+   * paramsFunction
+   *   A Function accepting index as parameter, returning an Array of parameters.
+   */
+  replicate : function( constructor, count, paramsFunction )
+  {
+    // Create an Array
+    var objects = [];
+    
+    // Loop creating Objects
+    var i = 0;
+    for ( i = 0; i < count; i ++ )
+    {
+      var newParams;
+      
+      // Get parameters
+      newParams = paramsFunction ? paramsFunction( i ) : [];
+      
+      // Call constructor
+      objects.push( constructor.apply( this, newParams ) );
+    }
+    
+    // Return result
+    return objects;
+  }
+};
+
+/* Static Class: Timer
+ * Improves timing precision over Player.time by sampling time usage for each frame. For retaining both smoothness and seekability.
+ */
+Akari.Utilities.Timer = function()
+{
+  var lastTime = 0;
+  var deltaTime = 0;
+  var sampleCount = 1;
+  
+  return
+  {
+    time : 0,
+    
+    /* Function: update
+     * Counts a frame and updates time.
+     */
+    update : function()
+    {
+      if ( Player.time != lastTime )
+      {
+        // Make drastic change proof
+        if ( Math.abs( Player.time - lastTime ) < 1000 )
+        {
+          deltaTime = ( Player.time - lastTime ) / sampleCount;
+          lastTime = Player.time;
+          sampleCount = 1;
+          
+          this.time = Player.time;
+        }
+        else
+        {
+          // Reset Timer because of a possible seek (or just so laggy that Timer is not effective)
+          deltaTime = 0;
+          lastTime = Player.time;
+          sampleCount = 1;
+          
+          this.time = Player.time;
+        }
+      }
+      else
+      {
+        this.time = lastTime + deltaTime * sampleCount;
+        sampleCount ++;
+      }
+    }
+  };
+}();
+
+/* Class: Binder
+ * Provides functions for binding properties. Mainly used in layers.
+ *
+ * object
+ *   An Object to bind.
+ * properties
+ *   An Object, containing values or Bindings for each property.
+ */
+Akari.Utilities.Binder = function()
+{
+  var binderClass = function( params )
+  {
+    var needBinding = {};
+    
+    var pathCheck = function( object, name )
+    {
+      var dotIndex = name.indexOf(".");
+      if ( dotIndex < 0 )
+      {
+        return object.hasOwnProperty( name );
+      }
+      else
+      {
+        return object.hasOwnProperty( name.substring( 0, dotIndex ) ) && pathCheck( object[ name.substring( 0, dotIndex ) ], name.substring( dotIndex + 1 ));
+      }
+    };
+    
+    var setParam = function( object, name, value )
+    {
+      var dotIndex = name.indexOf(".");
+      if ( dotIndex < 0 )
+      {
+        object[ name ] = value;
+      }
+      else
+      {
+        setParam( object[ name.substring( 0, dotIndex ) ], name.substring( dotIndex + 1 ), value );
+      }
+    };
+    
+    var setBinding = function( name, value )
+    {
+      // Check if path exists
+      if ( !pathCheck( params.object, name ) )
+      {
+        return;
+      }
+      
+      // Check if binding every frame is needed
+      if ( typeof( value ) === "function" )
+      {
+        needBinding[ name ] = value;
+      }
+      else
+      {
+        setParam( params.object, name, value );
+      }
+    };
+    
+    var setBindings = function( key, obj )
+    {
+      // Check if objs are Links or Sequences
+      if ( obj.hasOwnProperty( "linkFunc" ) )
+      {
+        // Check if a function is present
+        if ( obj.linkFunc )
+        {
+          if ( typeof( params.properties[ obj.name.toString() ] ) === "function" )
+          {
+            setBinding( key, function( time )
+            {
+              var value = params.properties[ obj.name.toString() ].apply( this, [ time ] );
+              return obj.linkFunc.apply( this, [ value, time ] );
+            });
+          }
+          else
+          {
+            setBinding( key, function( time )
+            {
+              return obj.linkFunc.apply( this, [ params.properties[ obj.name.toString() ], time ] );
+            });
+          }
+        }
+        else
+        {
+          setBinding( key, params.properties[ obj.name.toString() ] );
+        }
+      }
+      else if ( obj.hasOwnProperty( "sequence" ) )
+      {
+        // Set sequence first
+        for ( var i = 0; i < obj.sequence.length; i ++ )
+        {
+          setBindings( obj.sequence[ i ][ 0 ], obj.sequence[ i ][ 1 ] );
+        }
+        
+        // Set value
+        setBindings( key, obj.value );
+      }
+      else
+      {
+        setBinding( key, obj );
+      }
+    };
+    
+    foreach( params.properties, setBindings );
+    
+    return
+    {
+      
+      /* Function: update
+       * Updates the object to fit the timeline.
+       *
+       * time
+       *   A Number, the current time (in milliseconds) on the Composition's timeline.
+       * scope
+       *   [default] object
+       *   An Object, scope under which the binded functions are called.
+       */
+      update : function( time, scope )
+      {
+        foreach( needBinding, function( key, obj )
+        {
+          // Pass the scope to function
+          setParam( params.object, key, obj.apply( scope || params.object, [ time ] ) );
+        });
+      }
+    };
+  };
+
+  /* Class: Binder.Link
+   * Represents a link between different properties.
+   *
+   * name
+   *   The name of the property to link.
+   * linkFunc
+   *   [default] null
+   *   A Function accepting input & time from binder or null indicating copy.
+   */
+  binderClass.Link = function( params )
+  {
+    return
+    {
+      name : params.name,
+      linkFunc : params.linkFunc || null
+    };
+  };
+
+  /* Class: Binder.Sequence
+   * Represents a sequential bind, for properties that depend on other properties that need to be set earlier.
+   *
+   * sequence
+   *   An Array containing name value pairs.
+   * value
+   *   The value of the property to set after executing sequence.
+   */
+  binderClass.Sequence = function( params )
+  {
+    return
+    {
+      sequence : params.sequence,
+      value : params.value
+    };
+  };
+  
+  return binderClass;
+}();
+
+
+
+/* Namespace: Akari.Display
+ * This sort of classes are abstractions of display objects for use in production.
+ */
+
+Akari.Display = {};
+ 
+/* Class: Layer
+ * Provides functions for animating contents.
+ *
+ * source
+ *   A DisplayObject serving as the layer source.
+ * inPoint
+ *   A Number, the time (in milliseconds) at which the layers enters.
+ * outPoint
+ *   A Number, the time (in milliseconds) at which the layers exits.
+ * properties
+ *   [default] {}
+ *   An Object, containing values or Bindings for each AS3 property.
+ */
+Akari.Display.Layer = function( params )
+{
+  // Create a private binder for properties
+  var binder = Akari.Utilities.Binder({ object : params.source, properties : params.properties || {} });
+  
+  // Create the object
+  var layer =
+  {
+    source : params.source,
+    inPoint : params.inPoint,
+    outPoint : params.outPoint,
+    
+    /* Function: update
+     * Updates the layer to fit the timeline.
+     *
+     * time
+     *   A Number, the current time (in milliseconds) on the Composition's timeline.
+     */
+    update : function( time )
+    {
+      if ( time < params.inPoint || time >= params.outPoint )
+      {
+        // Set source invisible
+        this.source.visible = false;
+      }
+      else
+      {
+        // Set source visible first, so that it can be overridden by binder.
+        this.source.visible = true;
+        
+        // Update the binder, make sure binder always take effect on layer level
+        binder.update( time, this.getBinderScope() );
+      }
+    },
+    
+    /* Function: getBinderScope
+     * Dynamically return self for use as scope in Binders.
+     */
+    getBinderScope : function()
+    {
+      return this;
+    },
+    
+    /* Function: clone
+     * Custom clone function for binder to work.
+     */
+    clone : function()
+    {
+      return Akari.Display.Layer( Akari.Utilities.Factory.clone( params ) );
+    }
+  };
+  
+  // Update Layer for a first time to prevent flashing
+  layer.update( params.inPoint );
+  
+  return layer;
+};
+
+/* Class: DynamicVectorTextLayer
+ * A type of layer specialized to display basic dynamic vector text (huge sizes over 200px or exotic fonts).
+ *
+ * dictionary
+ *   An Object containing functions to create possible glyphs (due to Flash unable to clone vector content). 
+ *   Glyphs should be provided by user, be anchored at top-left and be of 200px in size.
+ * textProperties
+ *   [default] { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "" }
+ *   An Object, containing values or Bindings for vector text properties: horizontalAlign, verticalAlign, fontSize, letterSpacing, lineHeight, text.
+ *   If fixedWidth is true, spacing between characters will always be fontSize + letterSpacing or ( fontSize / 2 ) + letterSpacing depending on which the actual width is nearer to.
+ * inPoint
+ *   A Number, the time (in milliseconds) at which the layers enters.
+ * outPoint
+ *   A Number, the time (in milliseconds) at which the layers exits.
+ * properties
+ *   [default] {}
+ *   An Object, containing values or Bindings for each AS3 property.
+ */
+Akari.Display.DynamicVectorTextLayer = function( params )
+{
+  // Create Sprites for alignment
+  var linesContainer = Akari.Display.Sprite();
+  var alignmentContainer = Akari.Display.Sprite();
+  alignmentContainer.addChild( linesContainer );
+  
+  // Create objects for binding and change detection, due to lack of property getter / setters.
+  var lastTextProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "" };
+  
+  var textProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "" };
+  var textPropertiesBinder = Akari.Utilities.Binder({ object : textProperties, properties : params.textProperties || {} });
+  
+  // Create a Layer to contain text.
+  var layer = Akari.Display.Layer(
+  {
+    source : alignmentContainer,
+    inPoint : params.inPoint,
+    outPoint : params.outPoint,
+    properties : params.properties
+  });
+  
+  // Simulate inheritance by making a backup of update function.
+  var baseUpdate = Akari.Utilities.Factory.clone( layer.update, layer );
+  
+  // Declare new update
+  layer.update = function( time )
+  {
+    baseUpdate( time );
+      
+    // Update binder and check if anything changes
+    textPropertiesBinder.update( time, layer.getBinderScope() );
+    
+    var needGlyphReset = ( textProperties.text != lastTextProperties.text );
+    var needGlyphAdjust = needGlyphReset || ( textProperties.letterSpacing != lastTextProperties.letterSpacing ) || ( textProperties.fontSize != lastTextProperties.fontSize );
+    var needAlignmentAdjust = needGlyphAdjust || ( textProperties.horizontalAlign != lastTextProperties.horizontalAlign ) || ( textProperties.verticalAlign != lastTextProperties.verticalAlign ) || ( textProperties.lineHeight != lastTextProperties.lineHeight );
+    
+    if ( needAlignmentAdjust ) lastTextProperties = Akari.Utilities.Factory.clone( textProperties );
+    
+    // Reset Glyphs if needed (most expensive)
+    if ( needGlyphReset )
+    {
+      // Remove all children from linesContainer
+      while ( linesContainer.numChildren > 0 ) linesContainer.removeChildAt( 0 );
+      
+      // Split text into lines to process
+      var lines = textProperties.text.split( "\n" );
+      
+      for ( var numLine = 0; numLine < lines.length; numLine ++ )
+      {
+        // For each line create a new Sprite to contain glyphs
+        var lineSprite = Sprite();
+        
+        for ( var numChar = 0; numChar < lines[ numLine ].length; numChar ++ )
+        {
+          // Create glyphs and put them in current line. Position does not matter since it will be corrected afterwards.
+          lineSprite.addChild( params.dictionary[ lines[ numLine ].charAt( numChar ) ]() );
+        }
+        
+        // Add new Sprite to linesContainer
+        linesContainer.addChild( lineSprite );
+      }
+    }
+    
+    // Adjust glyphs if needed
+    if ( needGlyphAdjust )
+    {
+      for ( var numLine = 0; numLine < linesContainer.numChildren; numLine ++ )
+      {
+        var lineSprite = linesContainer.getChildAt( numLine );
+        var accumulativeX = 0;
+        
+        for ( var numChar = 0; numChar < lineSprite.numChildren; numChar ++ )
+        {
+          var glyph = lineSprite.getChildAt( numChar );
+          
+          // Set letter spacing and size
+          glyph.x = accumulativeX;
+          glyph.scaleX = glyph.scaleY = textProperties.fontSize / 200.0;
+          
+          if ( textProperties.fixedWidth )
+          {
+            // Text is fixed width, transform the width
+            var nwFactor = Math.round( glyph.width / textProperties.fontSize );
+            accumulativeX += textProperties.fontSize * ( nwFactor / 2 + 0.5 ) + textProperties.letterSpacing;
+          }
+          else
+          {
+            // Always use actual width
+            accumulativeX += glyph.width + textProperties.letterSpacing;
+          }
+        }
+      }
+    }
+    
+    // Adjust alignment if needed
+    if ( needAlignmentAdjust )
+    {
+      for ( var numLine = 0; numLine < linesContainer.numChildren; numLine ++ )
+      {
+        var lineSprite = linesContainer.getChildAt( numLine );
+        
+        // Set line height and alignment
+        switch ( textProperties.horizontalAlign )
+        {
+          case "left":
+            lineSprite.x = 0;
+            break;
+          case "right":
+            lineSprite.x = - lineSprite.width;
+            break;
+          case "center":
+            lineSprite.x = - lineSprite.width / 2;
+            break;
+        }
+        lineSprite.y = numLine * textProperties.lineHeight;
+      }
+      
+      // Set vertical alignment
+      switch ( textProperties.verticalAlign )
+      {
+        case "top":
+          linesContainer.y = 0;
+          break;
+        case "bottom":
+          linesContainer.y = - linesContainer.height;
+          break;
+        case "center":
+          linesContainer.y = - linesContainer.height / 2;
+          break;
+      }
+    }
+  };
+    
+  /* Function: clone
+   * Custom clone function for binder to work.
+   */
+  layer.clone = function()
+  {
+    return Akari.Display.DynamicVectorTextLayer( Akari.Utilities.Factory.clone( params ) );
+  };
+  
+  // Update Layer for a first time to prevent flashing
+  layer.update( params.inPoint );
+  
+  return layer;
+};
+
+/* Class: CompositionLayer
+ * A type of layer specialized to nest compositions.
+ *
+ * composition
+ *   A Composition.
+ * inPoint
+ *   A Number, the time (in milliseconds) at which the layers enters.
+ * outPoint
+ *   A Number, the time (in milliseconds) at which the layers exits.
+ * inPointTime
+ *   [default] composition.startTime
+ *   A Number, the time (in milliseconds) the Composition is at when the layers enters.
+ * outPointTime
+ *   [default] composition.startTime + composition.duration
+ *   A Number, the time (in milliseconds) the Composition is at when the layers exits.
+ * timeRemap
+ *   [default] null
+ *   A Function or null, depending on whether you need time remapping. Setting this function overrides inPointTime and outPointTime settings.
+ *   The function should accept a parameter time (in milliseconds) the current time.
+ * properties
+ *   [default] {}
+ *   An Object, containing values or Bindings for each AS3 property.
+ */
+Akari.Display.CompositionLayer = function( params )
+{
+  var nestedComposition = params.composition;
+  var inPointTime = params.inPointTime || nestedComposition.startTime;
+  var outPointTime = params.outPointTime || nestedComposition.startTime + nestedComposition.duration;
+  
+  // Create a Layer.
+  var layer = Akari.Display.Layer(
+  {
+    source : nestedComposition.canvas,
+    inPoint : params.inPoint,
+    outPoint : params.outPoint,
+    properties : params.properties
+  });
+  
+  // Simulate inheritance by making a backup of update function.
+  var baseUpdate = Akari.Utilities.Factory.clone( layer.update, layer );
+  
+  // Declare new update regarding nested Composition timeline.
+  // Declare different functions according to having timeRemap or not to improve performance.
+  if ( params.timeRemap )
+  {
+    layer.update = function( time )
+    {
+      baseUpdate( time );
+      
+      // Update nested Composition to fit timeline.
+      if ( this.source.visible )
+        nestedComposition.update( params.timeRemap( time ) );
+    };
+  }
+  else
+  {
+    layer.update = function( time )
+    {
+      baseUpdate( time );
+      
+      // Update nested Composition to fit timeline.
+      if ( this.source.visible )
+        nestedComposition.update( inPointTime + ( time - params.inPoint ) * (outPointTime - inPointTime) / ( params.outPoint - params.inPoint) );
+    };
+  }
+    
+  /* Function: clone
+   * Custom clone function for binder to work.
+   */
+  layer.clone = function()
+  {
+    return Akari.Display.CompositionLayer( Akari.Utilities.Factory.clone( params ) );
+  };
+  
+  // Update Layer for a first time to prevent flashing
+  layer.update( params.inPoint );
+  
+  return layer;
+};
+
+/* Class: Composition
+ * Provides functions as the framework of a scene.
+ *
+ * width
+ *   [default] $.width
+ *   A Number specifying stage width.
+ * height
+ *   [default] $.height
+ *   A Number specifying stage height.
+ * startTime
+ *   [default] 0
+ *   A Number, the time (in milliseconds) when the timeline starts.
+ * duration
+ *   [default] 60000
+ *   A Number, the length (in milliseconds) of the timeline.
+ * layers
+ *   [default] []
+ *   An Array of Layers, from top to bottom.
+ * hasBoundaries
+ *   [default] false
+ *   Whether a mask will be put on the canvas so that elements outside become invisible.
+ */
+Akari.Display.Composition = function( params )
+{
+  // Create a Sprite as container.
+  var canvas = Akari.Display.Sprite();
+  if ( params.hasBoundaries )
+  {
+    var solidMask = Akari.Display.Solid({ width : params.width || $.width, height : params.height || $.height, color : 0x0 });
+    canvas.addChild( solidMask );
+    canvas.mask = solidMask;
+  }
+  
+  // Add all Layers to the Sprite in order.
+  var layers = params.layers || [];
+  var i = 0;
+  
+  for ( i = 0; i < layers.length; i ++ )
+  {
+    canvas.addChild( layers[ i ].source );
+  }
+  
+  return
+  {
+    width : params.width || $.width,
+    height : params.height || $.height,
+    startTime : params.startTime || 0,
+    duration : params.duration || 60000,
+    layers : layers,
+    canvas : canvas,
+    
+    /* Function: update
+     * Updates the canvas to fit the timeline.
+     *
+     * time
+     *   A Number, the current time (in milliseconds) on the Composition's own timeline.
+     */
+    update : function( time )
+    {
+      // Check if Composition is active, otherwise update for borderline situations.
+      if ( time < startTime )
+        return this.update( startTime );
+      if ( time >= startTime + duration )
+        return this.update( startTime + duration - 1 );
+      
+      // Update all layers, set parent property dynamically on the first call as well
+      foreach( this.layers, function( key, object )
+      {
+        if ( !object.parent ) object.parent = this;
+        object.update( time );
+      });
+    },
+    
+    /* Function: clone
+     * Custom clone function to ensure masking work.
+     */
+    clone : function()
+    {
+      return Akari.Display.Composition( Akari.Utilities.Factory.clone( params ) );
+    }
+  };
+};
+
+/* Class: MainComposition
+ * Provides functions as the framework of the comment art. Only MainCompositions have ability to be presented.
+ *
+ * width
+ *   [default] $.width
+ *   A Number specifying stage width.
+ * height
+ *   [default] $.height
+ *   A Number specifying stage height.
+ * startTime
+ *   [default] 0
+ *   A Number, the time (in milliseconds) when the timeline starts.
+ * duration
+ *   [default] 60000
+ *   A Number, the length (in milliseconds) of the timeline.
+ * layers
+ *   [default] []
+ *   An Array of Layers, from top to bottom.
+ * hasBoundaries
+ *   [default] true
+ *   Whether a mask will be put on the canvas so that elements outside become invisible.
+ */
+Akari.Display.MainComposition = function( params )
+{
+  // Change default value for hasBoundaries
+  if (!( params.hasBoundaries === false ))
+  {
+    params.hasBoundaries = true;
+  }
+  
+  // Create base Composition
+  var composition = Akari.Display.Composition( params );
+  
+  // Remember when did the comp last update to maintain seekability.
+  var lastUpdate = -1;
+  
+  // Remember the player size to maintain scalability
+  var lastWidth, lastHeight;
+  
+  // Add new functions for presenting
+  
+  // Prepare the frame function, need a private handle for removing.
+  var frameFunction = function()
+  {
+    // Check if player is running
+    if ( Player.state === "playing" )
+    {        
+      // Update Timer
+      Akari.Utilities.Timer.update();
+      
+      // Update Composition
+      composition.update( Akari.Utilities.Timer.time );
+    }
+    else
+    {
+      // When player is not running, check last update time to ensure seekability.
+      if ( lastUpdate != Player.time )
+        composition.update( Player.time );
+    }
+    
+    // Check if player size changed
+    // I dislike polling but can't find a event to listen for this. Need suggestion
+    if ( $.width != lastWidth || $.height != lastHeight )
+    {
+      // Maximize self in container
+      maximizeInContainer();
+      
+      // Set variables
+      lastWidth = $.width;
+      lastHeight = $.height;
+    }
+  };
+  
+  var maximizeInContainer = function()
+  {
+    // Maximize
+    ratio = Math.min( $.width / Akari.root.scaleX / composition.width, $.height / Akari.root.scaleY / composition.height );
+    composition.canvas.scaleX = ratio;
+    composition.canvas.scaleY = ratio;
+    
+    // Center
+    composition.canvas.x = ( $.width / Akari.root.scaleX - composition.width * ratio ) / 2;
+    composition.canvas.y = ( $.height / Akari.root.scaleY - composition.height * ratio ) / 2;
+  };
+  
+  // Declare new update for update time stuff
+  var baseUpdate = Akari.Utilities.Factory.clone( composition.update, composition );
+  
+  composition.update = function( time )
+  {
+    lastUpdate = time;
+    baseUpdate( time );
+  };
+
+  /* Function: present
+   * Presents the composition immediately. Only one Composition can be presented at a time.
+   */
+  composition.present = function()
+  {
+    // Listen canvas enterFrame
+    this.canvas.addEventListener( "enterFrame", frameFunction );
+    
+    // Add self to display tree
+    Akari.root.addChild( this.canvas );
+    
+    // Call the frame function for a first time
+    frameFunction();
+  };
+    
+  /* Function: detach
+   * Detaches the composition from player.
+   */
+  composition.detach = function()
+  {
+    // Remove canvas enterFrame
+    this.canvas.removeEventListener( "enterFrame", frameFunction );
+    
+    // Remove self from display tree
+    Akari.root.removeChild( this.canvas );
+  };
+    
+  /* Function: clone
+   * Custom clone function for binder to work.
+   */
+  composition.clone = function()
+  {
+    return Akari.Display.MainComposition( Akari.Utilities.Factory.clone( params ) );
+  };
+  
+  // Return Composition
+  return composition;
+};
+
+/* Static Function: getInstance
+ * Read the global variable. Only avaiable after one has been presented.
+ */
+Akari.Display.MainComposition.getInstance = function()
+{
+  return Global._get("__mainComp_akari");
+};
+
+/* Class: Sprite
+ * Shortcut for AS3 Sprite.
+ */
+Akari.Display.Sprite = function()
+{
+  // 2012/11/21 : Factory deprecated for a player update
+  // return Factory.create("flash.display.Sprite");
+  
+  // 2012/11/22 New update caused objects to be disappearing seemingly out of reason
+  // Adding random shit motion to fuck it
+  
+  var sprite = $.createCanvas(
+  {
+    lifeTime : 810114514,
+    motionGroup : [
+      {
+        fontSize :
+        {
+          fromValue : "ʮ�����",
+          toValue : "ӹ����Ȥ",
+          lifeTime : 810114514,
+          startDelay : 810114514
+        }
+      }
+    ]
+  });
+  
+  Akari.root.addChild( sprite );
+  Akari.root.removeChild( sprite );
+  
+  // remove 3D to make it clear by default
+  sprite.transform.matrix3D = null;
+  
+  return sprite;
+};
+
+/* Class: Shape
+ * Shortcut for AS3 Shape.
+ */
+Akari.Display.Shape = function()
+{
+  // 2012/11/21 : Factory deprecated for a player update
+  // return Factory.create("flash.display.Shape");
+  
+  var shape = $.createShape(
+  {
+    lifeTime : 810114514,
+    motionGroup : [
+      {
+        fontSize :
+        {
+          fromValue : "�Űݺ���",
+          toValue : "�����ټ�",
+          lifeTime : 810114514,
+          startDelay : 810114514
+        }
+      }
+    ]
+  });
+  
+  Akari.root.addChild( shape );
+  Akari.root.removeChild( shape );
+  
+  // remove 3D to make it clear by default
+  shape.transform.matrix3D = null;
+  
+  return shape;
+};
+
+/* Class: Text
+ * Shortcut for AS3 TextField.
+ *
+ * preserveGlow
+ *   [default] false
+ *   Whether to preserve the original glow filter
+ */
+Akari.Display.Text = function( preserveGlow )
+{
+  // 2012/11/21 : Factory deprecated for a player update
+  
+  var text = $.createComment( " ",
+  {
+    lifeTime : 810114514,
+    motionGroup : [
+      {
+        fontSize :
+        {
+          fromValue : "�Ա�����",
+          toValue : "һֱ����",
+          lifeTime : 810114514,
+          startDelay : 810114514
+        }
+      }
+    ]
+  });
+  
+  Akari.root.addChild( text );
+  Akari.root.removeChild( text );
+  
+  if ( !preserveGlow ) text.filters = null;
+  
+  // remove 3D to make it clear by default
+  text.transform.matrix3D = null;
+  
+  return text;
+};
+
+/* Class: Solid
+ * A solid color layer source.
+ *
+ * width
+ *   A Number specifying solid width.
+ * height
+ *   A Number specifying solid height.
+ * color
+ *   A Number specifying solid color.
+ */
+Akari.Display.Solid = function( params )
+{
+  var shape = Akari.Display.Shape();
+  
+  shape.graphics.beginFill( params.color );
+  shape.graphics.drawRect( 0, 0, params.width, params.height );
+  shape.graphics.endFill();
+  
+  return shape;
+};
+
+/* Class: Anchor
+ * Anchors the layer source at a specific point
+ *
+ * source
+ *   The DisplayObject to wrap around
+ * x
+ *   [default] source.width / 2
+ *   Anchor X.
+ * y
+ *   [default] source.height / 2
+ *   Anchor Y.
+ */
+Akari.Display.Anchor = function( params )
+{
+  var sprite = Akari.Display.Sprite();
+  
+  sprite.addChild( params.source );
+  params.source.x = - ( params.x || params.source.width / 2 );
+  params.source.y = - ( params.y || params.source.height / 2 );
+  
+  return sprite;
+};
+
+/* Class: Anchor3D
+ * Anchors the layer source at a specific point in 3D space
+ *
+ * source
+ *   The DisplayObject to wrap around
+ * x
+ *   [default] source.width / 2
+ *   Anchor X.
+ * y
+ *   [default] source.height / 2
+ *   Anchor Y.
+ * z
+ *   [default] 0
+ *   Anchor Z.
+ */
+Akari.Display.Anchor3D = function( params )
+{
+  var sprite = Akari.Display.Sprite();
+  
+  sprite.addChild( params.source );
+  params.source.x = - ( params.x || params.source.width / 2 );
+  params.source.y = - ( params.y || params.source.height / 2 );
+  params.source.z = - ( params.z || 0 );
+  
+  return sprite;
+};
+
+/* Class: Checkerboard
+ * A checkboard layer source.
+ *
+ * width
+ *   A Number specifying checkboard width.
+ * height
+ *   A Number specifying checkboard height.
+ * frequencyX
+ *   Number of blocks on X axis.
+ * frequencyY
+ *   Number of blocks on Y axis.
+ * color1
+ *   A Number specifying checkboard background color.
+ * color2
+ *   A Number specifying checkboard foreground color.
+ */
+Akari.Display.Checkerboard = function( params )
+{
+  var shape = Akari.Display.Shape();
+  
+  // Draw the background
+  shape.graphics.beginFill( params.color1 );
+  shape.graphics.drawRect( 0, 0, params.width, params.height );
+  shape.graphics.endFill();
+  
+  // Draw the foreground
+  shape.graphics.beginFill( params.color2 );
+  
+  // Draw the horizontal snake
+  var i = 0;
+  for ( i = 0; i <= params.frequencyY; i ++ )
+  {
+    if ( i % 2 === 0 )
+    {
+      shape.graphics.lineTo( 0, params.height * i / params.frequencyY );
+      shape.graphics.lineTo( params.width, params.height * i / params.frequencyY );
+    }
+    else
+    {
+      shape.graphics.lineTo( params.width, params.height * i / params.frequencyY );
+      shape.graphics.lineTo( 0, params.height * i / params.frequencyY );
+    }
+  }
+  if ( params.frequencyY % 2 === 0 )
+  {
+    shape.graphics.lineTo( params.width, 0 );
+  }
+  shape.graphics.lineTo( 0, 0 );
+  
+  // Draw the vertical snake
+  shape.graphics.moveTo( 0, 0 );
+  for ( i = 0; i <= params.frequencyX; i ++ )
+  {
+    if ( i % 2 === 0 )
+    {
+      shape.graphics.lineTo( params.width * i / params.frequencyX, 0 );
+      shape.graphics.lineTo( params.width * i / params.frequencyX, params.height );
+    }
+    else
+    {
+      shape.graphics.lineTo( params.width * i / params.frequencyX, params.height );
+      shape.graphics.lineTo( params.width * i / params.frequencyX, 0 );
+    }
+  }
+  if ( params.frequencyX % 2 === 0 )
+  {
+    shape.graphics.lineTo( 0, params.height );
+  }
+  shape.graphics.lineTo( 0, 0 );
+  
+  shape.graphics.endFill();
+  
+  return shape;
+};
+
+
+/* Namespace: Akari.Animation
+ * This sort of classes are helpers for creating animation.
+ */
+
+Akari.Animation = {};
+ 
+/* Static Class: Interpolation
+ * Provides functions for interpolating between numbers.
+ *
+ * Common parameters for functions in this class:
+ *
+ * t
+ *   A Number, time factor indicating position between the values.
+ * value1
+ *   A Number, the first value ( t = 0 ).
+ * value2
+ *   A Number, the second value ( t = 1 ).
+ */
+Akari.Animation.Interpolation =
+{
+  /* Function: dimension
+   * Creates a multidimensional interpolation based on given function.
+   *
+   * interpolation
+   *   The interpolation function to wrap.
+   */
+  dimension : function( interpolation )
+  {
+    return function( t, value1, value2 )
+    {
+      var result = [];
+      
+      for ( var i = 0; i < value1.length; i ++ )
+      {
+        result[ i ] = interpolation( t, value1[ i ], value2[ i ] );
+      }
+      
+      return result;
+    };
+  },
+  
+  /* Function: hold
+   * Holds value1
+   */
+  hold : function( t, value1, value2 )
+  {
+    return value1;
+  },
+  
+  /* Function: linear
+   * Interpolates in linear manner.
+   */
+  linear : function( t, value1, value2 )
+  {
+    return value1 + ( value2 - value1 ) * t;
+  },
+  
+  /* Function Group: cubic
+   * Interpolates in cubic manner.
+   */
+  cubic :
+  {
+    easeIn : function( t, value1, value2 )
+    {
+      return value1 + ( value2 - value1 ) * t * t * t;
+    },
+    easeOut : function( t, value1, value2 )
+    {
+      return Akari.Animation.Interpolation.cubic.easeIn( 1 - t, value2, value1 );
+    },
+    easeInOut : function( t, value1, value2 )
+    {
+      var midPoint = ( value1 + value2 ) / 2;
+      if ( t < 0.5 ) return Akari.Animation.Interpolation.cubic.easeIn( t * 2, value1, midPoint );
+      return Akari.Animation.Interpolation.cubic.easeOut( t * 2 - 1, midPoint, value2 );
+    },
+    easeOutIn : function( t, value1, value2 )
+    {
+      var midPoint = ( value1 + value2 ) / 2;
+      if ( t < 0.5 ) return Akari.Animation.Interpolation.cubic.easeOut( t * 2, value1, midPoint );
+      return Akari.Animation.Interpolation.cubic.easeIn( t * 2 - 1, midPoint, value2 );
+    }
+  },
+  
+  /* Function Group: quartic
+   * Interpolates in quartic manner.
+   */
+  quartic :
+  {
+    easeIn : function( t, value1, value2 )
+    {
+      return value1 + ( value2 - value1 ) * t * t * t * t;
+    },
+    easeOut : function( t, value1, value2 )
+    {
+      return Akari.Animation.Interpolation.quartic.easeIn( 1 - t, value2, value1 );
+    },
+    easeInOut : function( t, value1, value2 )
+    {
+      var midPoint = ( value1 + value2 ) / 2;
+      if ( t < 0.5 ) return Akari.Animation.Interpolation.quartic.easeIn( t * 2, value1, midPoint );
+      return Akari.Animation.Interpolation.quartic.easeOut( t * 2 - 1, midPoint, value2 );
+    },
+    easeOutIn : function( t, value1, value2 )
+    {
+      var midPoint = ( value1 + value2 ) / 2;
+      if ( t < 0.5 ) return Akari.Animation.Interpolation.quartic.easeOut( t * 2, value1, midPoint );
+      return Akari.Animation.Interpolation.quartic.easeIn( t * 2 - 1, midPoint, value2 );
+    }
+  },
+  
+  /* Function Group: quintic
+   * Interpolates in quintic manner.
+   */
+  quintic :
+  {
+    easeIn : function( t, value1, value2 )
+    {
+      return value1 + ( value2 - value1 ) * t * t * t * t * t;
+    },
+    easeOut : function( t, value1, value2 )
+    {
+      return Akari.Animation.Interpolation.quintic.easeIn( 1 - t, value2, value1 );
+    },
+    easeInOut : function( t, value1, value2 )
+    {
+      var midPoint = ( value1 + value2 ) / 2;
+      if ( t < 0.5 ) return Akari.Animation.Interpolation.quintic.easeIn( t * 2, value1, midPoint );
+      return Akari.Animation.Interpolation.quintic.easeOut( t * 2 - 1, midPoint, value2 );
+    },
+    easeOutIn : function( t, value1, value2 )
+    {
+      var midPoint = ( value1 + value2 ) / 2;
+      if ( t < 0.5 ) return Akari.Animation.Interpolation.quintic.easeOut( t * 2, value1, midPoint );
+      return Akari.Animation.Interpolation.quintic.easeIn( t * 2 - 1, midPoint, value2 );
+    }
+  },
+  
+  /* Function Group: exponential
+   * Interpolates in exponential manner.
+   */
+  exponential :
+  {
+    easeIn : function( t, value1, value2 )
+    {
+      return ( t === 0 ) ? value1 : value1 + ( value2 - value1 ) * Math.pow( 2, 10 * ( t - 1 ) );
+    },
+    easeOut : function( t, value1, value2 )
+    {
+      return Akari.Animation.Interpolation.exponential.easeIn( 1 - t, value2, value1 );
+    },
+    easeInOut : function( t, value1, value2 )
+    {
+      var midPoint = ( value1 + value2 ) / 2;
+      if ( t < 0.5 ) return Akari.Animation.Interpolation.exponential.easeIn( t * 2, value1, midPoint );
+      return Akari.Animation.Interpolation.exponential.easeOut( t * 2 - 1, midPoint, value2 );
+    },
+    easeOutIn : function( t, value1, value2 )
+    {
+      var midPoint = ( value1 + value2 ) / 2;
+      if ( t < 0.5 ) return Akari.Animation.Interpolation.exponential.easeOut( t * 2, value1, midPoint );
+      return Akari.Animation.Interpolation.exponential.easeIn( t * 2 - 1, midPoint, value2 );
+    }
+  },
+  
+  /* Function Group: back
+   * Interpolates in a overflowing manner.
+   *
+   * s
+   *   [default] 1.70158
+   *   Back factor.
+   */
+  back :
+  {
+    s : 1.70158,
+    easeIn : function( t, value1, value2 )
+    {
+      return ( value2 - value1 ) * t * t * (( Akari.Animation.Interpolation.back.s + 1 ) * t - Akari.Animation.Interpolation.back.s ) + value1;
+    },
+    easeOut : function( t, value1, value2 )
+    {
+      return Akari.Animation.Interpolation.back.easeIn( 1 - t, value2, value1 );
+    },
+    easeInOut : function( t, value1, value2 )
+    {
+      var midPoint = ( value1 + value2 ) / 2;
+      if ( t < 0.5 ) return Akari.Animation.Interpolation.back.easeIn( t * 2, value1, midPoint );
+      return Akari.Animation.Interpolation.back.easeOut( t * 2 - 1, midPoint, value2 );
+    },
+    easeOutIn : function( t, value1, value2 )
+    {
+      var midPoint = ( value1 + value2 ) / 2;
+      if ( t < 0.5 ) return Akari.Animation.Interpolation.back.easeOut( t * 2, value1, midPoint );
+      return Akari.Animation.Interpolation.back.easeIn( t * 2 - 1, midPoint, value2 );
+    }
+  }
+};
+
+/* Enum: KeyframeMode
+ * Modes of keyframe behaviors.
+ */
+Akari.Animation.KeyframeMode =
+{
+  // affectNext: The keyframe's function will be used when time is between this keyframe and the next.
+  affectNext : 0,
+  
+  // weightBlend: The keyframe's function and the next's will be used when time is between this keyframe and the next, according to weight settings and time factor.
+  weightBlend : 1,
+  
+  // useNext: The next keyframe's function will be used when time is between this keyframe and the next.
+  useNext : 2
+};
+ 
+/* Class: Keyframe
+ * A class describing a keyframe.
+ *
+ * time
+ *   Time (in milliseconds) the keyframe is at.
+ * value
+ *   Value of the keyframe.
+ * interpolation
+ *   [default] Interpolation.linear
+ *   Function used to interpolate between this value and the next.
+ * mode
+ *   [default] KeyframeMode.affectNext
+ *   Interpolation behavior of this keyframe.
+ * weight
+ *   [default] 1
+ *   Weight when KeyframeMode.weightBlend is used.
+ */
+Akari.Animation.Keyframe = function( params )
+{
+  return
+  {
+    time : params.time,
+    value : params.value,
+    interpolation : params.interpolation || Akari.Animation.Interpolation.linear,
+    mode : params.mode || Akari.Animation.KeyframeMode.affectNext,
+    weight : params.weight || 1,
+    
+    /* Function: clone
+     * Custom clone function.
+     */
+    clone : function()
+    {
+      return Keyframe( Akari.Utilities.Factory.clone( params ) );
+    }
+  };
+};
+ 
+/* Enum: KeyframesBindMode
+ * Modes of keyframe bind behaviors.
+ */
+Akari.Animation.KeyframesBindMode =
+{
+  // hold: Hold the value of the nearest keyframe when out of range.
+  hold : 0,
+  
+  // repeat: Repeat keyframes when out of range (last => second)
+  repeat : 1,
+  
+  // pingPong: Ping Pong keyframes when out of range.
+  pingPong : 2
+};
+ 
+/* Class: KeyframesBind
+ * An animation Binding using keyframes.
+ *
+ * keyframes
+ *   An Array containing keyframes to use, in time order.
+ * mode
+ *   [default] KeyframesBindMode.hold
+ *   Behavior when out of range.
+ */
+Akari.Animation.KeyframesBind = function( params )
+{
+  // Store information about range
+  var firstKeyframeTime = params.keyframes[ 0 ].time;
+  var lastKeyframeTime = params.keyframes[ params.keyframes.length - 1 ].time;
+  var duration = lastKeyframeTime - firstKeyframeTime;
+  
+  // Create function for out of range behavior
+  var applyRangeBehavior = null;
+  if ( params.mode === Akari.Animation.KeyframesBindMode.repeat )
+  {
+    applyRangeBehavior = function( time )
+    {
+      return firstKeyframeTime + ( time - firstKeyframeTime ) % ( duration );
+    };
+  }
+  else if ( params.mode === Akari.Animation.KeyframesBindMode.pingPong )
+  {
+    applyRangeBehavior = function( time )
+    {
+      // Modulate by double the duration
+      var ppTime = ( time - firstKeyframeTime ) % ( duration * 2 );
+      
+      // Check phase
+      if ( ppTime > duration )
+      {
+        return lastKeyframeTime - ppTime + duration;
+      }
+      else
+      {
+        return firstKeyframeTime + ppTime;
+      }
+    };
+  }
+  
+  // Function for finding the current keyframe index
+  var findCurrentIndex = function( time )
+  {
+    // Iterate through keyframes to find
+    var currentIndex = 0;
+    while( params.keyframes[ currentIndex + 1 ] && params.keyframes[ currentIndex + 1 ].time < time )
+      currentIndex ++;
+    
+    return currentIndex;
+  };
+  
+  // Return the binding function
+  return function( time )
+  {
+    // Apply behavior if exists
+    var newTime = applyRangeBehavior ? applyRangeBehavior( time ) : time;
+    
+    // Find the current keyframe
+    var currentIndex = findCurrentIndex( newTime );
+    var currentKey = params.keyframes[ currentIndex ];
+    var nextKey = params.keyframes[ currentIndex + 1 ];
+    
+    // Whether there is a next keyframe to interpolate
+    if ( nextKey )
+    {
+      // Calculate time factor
+      var tFactor = ( newTime - currentKey.time ) / ( nextKey.time - currentKey.time );
+      
+      // Check current keyframe's mode
+      if ( currentKey.mode === Akari.Animation.KeyframeMode.affectNext )
+      {
+        return currentKey.interpolation( tFactor, currentKey.value, nextKey.value );
+      }
+      else if ( currentKey.mode === Akari.Animation.KeyframeMode.useNext )
+      {
+        return nextKey.interpolation( tFactor, currentKey.value, nextKey.value );
+      }
+      else if ( currentKey.mode === Akari.Animation.KeyframeMode.weightBlend )
+      {
+        // First calculate using two functions
+        var value1 = currentKey.interpolation( tFactor, currentKey.value, nextKey.value );
+        var value2 = nextKey.interpolation( tFactor, currentKey.value, nextKey.value );
+        
+        // Calculate weights
+        var weight1 = currentKey.weight * ( 1 - tFactor );
+        var weight2 = nextKey.weight * tFactor;
+        
+        // Return a weighted average
+        return ( value1 * weight1 + value2 * weight2 ) / ( weight1 + weight2 );
+      }
+    }
+    else
+    {
+      // When there is not a next frame for some reason, just return the current value
+      return currentKey.value;
+    }
+  };
+};
+
+/* Class: WiggleKeyframes
+ * A set of keyframes that make a wiggle effect.
+ *
+ * origin
+ *   Number or Array of Numbers to wiggle upon.
+ * numSteps
+ *   Number of keyframes to generate.
+ * startTime
+ *   Time (in milliseconds) at which the wiggle starts.
+ * stepTime
+ *   Time (in milliseconds) each step will last for.
+ * amount
+ *   Strength of the effect.
+ * interpolation
+ *   [default] Interpolation.cubic.easeInOut
+ *   Function used to interpolate between values.
+ * returnCenter
+ *   [default] false
+ *   Indicated whether to return to center before every move
+ */
+Akari.Animation.WiggleKeyframes = function( params )
+{
+  // Private function for a random vector
+  var vectorRandom = function( n )
+  {
+    var result = [];
+    
+    for( var i = 0; i < n; i ++ )
+    {
+      result[ i ] = Math.random() - 0.5;
+    }
+    return result;
+  };
+  
+  // Private function for vector length
+  var vectorLength = function( vector )
+  {
+    var sum = 0;
+    
+    for( var i = 0; i < vector.length; i ++ )
+    {
+      sum += vector[ i ] * vector[ i ];
+    }
+    return Math.sqrt( sum );
+  };
+  
+  // Private function for scaling vector
+  var vectorScale = function( vector, scalar )
+  {
+    var result = [];
+    
+    for( var i = 0; i < vector.length; i ++ )
+    {
+      result[ i ] = vector[ i ] * scalar;
+    }
+    return result;
+  };
+  
+  // Private function for adding vector
+  var vectorAdd = function( vector1, vector2 )
+  {
+    var result = [];
+    
+    for( var i = 0; i < vector1.length; i ++ )
+    {
+      result[ i ] = vector1[ i ] + vector2[ i ];
+    }
+    return result;
+  };
+  
+  // Private function for randomizing with base
+  var randomize = function( origin )
+  {
+    if ( origin.hasOwnProperty("length") )
+    {
+      // Origin is an Array, use vector stuff
+      var randVector = vectorRandom( origin.length );
+      
+      // Scale vector to fit amount constraint
+      var scaledVector = vectorScale( randVector, params.amount / vectorLength( randVector ) );
+      
+      // Return result
+      return vectorAdd( origin, scaledVector );
+    }
+    else
+    {
+      // Origin is not Array, return a simple randomization
+      return origin + params.amount * ( Math.random() - 0.5 );
+    }
+  };
+  
+  // Loop randomizing
+  if ( params.returnCenter )
+  {
+    var keyframes = [];
+    for( var c = 0; c < params.numSteps; c ++ )
+    {
+      // Create keyframe
+      keyframes.push( Akari.Animation.Keyframe({ time : params.startTime + params.stepTime * c - 1, value : params.origin, interpolation : Akari.Animation.Interpolation.hold }) );
+      keyframes.push( Akari.Animation.Keyframe({ time : params.startTime + params.stepTime * c, value : randomize( params.origin ), interpolation : params.interpolation || Akari.Animation.Interpolation.cubic.easeInOut }) );
+    }
+    
+    // Repeat first for consistency
+    keyframes.push( Akari.Animation.Keyframe({ time : params.startTime + params.stepTime * ( ++ c ) - 1, value : params.origin, interpolation : Akari.Animation.Interpolation.hold }) );
+    
+    // Return keyframes
+    return keyframes;
+  }
+  else
+  {
+    var keyframes = [];
+    for( var c = 0; c < params.numSteps; c ++ )
+    {
+      // Create keyframe
+      keyframes.push( Akari.Animation.Keyframe({ time : params.startTime + params.stepTime * c, value : randomize( params.origin ), interpolation : params.interpolation || Akari.Animation.Interpolation.cubic.easeInOut }) );
+    }
+    
+    // Repeat first for consistency
+    keyframes.push( Akari.Animation.Keyframe({ time : params.startTime + params.stepTime * ( ++ c ), value : keyframes[ 0 ].value, interpolation : params.interpolation || Akari.Animation.Interpolation.cubic.easeInOut }) );
+    
+    // Return keyframes
+    return keyframes;
+  }
+};
+
+
+
+/* Namespace: Akari.Display.Effects
+ * This sort of classes are effects that wrap around layers. Not to be confused with filters which should be set with Binders.
+ */
+
+Akari.Display.Effects = {};
+
+/* Class: TrackMatte
+ * Use another layer as a mask.
+ *
+ * layer
+ *   The Layer to be masked.
+ * mask
+ *   The mask Layer.
+ */
+Akari.Display.Effects.TrackMatte = function( params )
+{
+  // Add mask layer to display list and apply mask
+  params.layer.source.addChild( params.mask.source );
+  params.layer.source.mask = params.mask.source;
+  
+  // Simulate inheritance by making a backup of update function.
+  var baseUpdate = Akari.Utilities.Factory.clone( params.layer.update, params.layer );
+  
+  // Declare new update
+  params.layer.update = function( time )
+  {
+    // Update original layer and mask layer
+    baseUpdate( time );
+    params.mask.update( time );
+  };
+  
+  return params.layer;
+};
+
+/* Class: ForceMotionBlur
+ * An effect dedicated to create motion blur effects which Flash lacks. Use the effect with Replicator.
+ *
+ * layers
+ *   The Layers to use.
+ * exposureTime
+ *   [default] 20.8333
+ *   Exposure time (in milliseconds). Defaults to 1000/48 (double the Player frame rate).
+ * shutterPhase
+ *   [default] -90
+ *   Shutter phase in degrees.
+ */
+Akari.Display.Effects.ForceMotionBlur = function( params )
+{
+  // Default values
+  if ( !params.exposureTime ) params.exposureTime = 1000.0 / 48.0;
+  var shutterOffset = params.exposureTime * ( params.shutterPhase || -90.0 ) / 180.0;
+  
+  // Create a Sprite as container for objects
+  var canvas = Akari.Display.Sprite();
+  
+  // Clone an invisible original layer for preserving alpha and blend
+  var original = params.layers.shift();
+  
+  // Add sub-layers to display tree, calculate alpha values to avoid problem
+  var subLayers = params.layers;
+  var subAlphas = [];
+  var totalAlphaYet = 0;
+  var i = 0;
+  for ( i = 0; i < subLayers.length; i++ )
+  {
+    canvas.addChild( subLayers[ i ].source );
+    
+    // As for the internal 256 thing
+    var idealTotalAlpha = Math.ceil( 256 * ( i + 1 ) / subLayers.length );
+    var subAlpha = idealTotalAlpha - totalAlphaYet;
+    subAlphas.push( ( subAlpha + 1 ) / 256 );
+    totalAlphaYet += subAlpha;
+  }
+  
+  // Create a new layer, binding alpha and blendMode with original layer
+  var layer = Akari.Display.Layer(
+  {
+    source : canvas,
+    inPoint : original.inPoint,
+    outPoint : original.outPoint,
+    properties :
+    {
+      alpha : function( time ) { return original.source.alpha; },
+      blendMode : function( time ) { return original.source.blendMode; }
+    }
+  });
+  
+  // Simulate inheritance by making a backup of update function.
+  var baseUpdate = Akari.Utilities.Factory.clone( layer.update, layer );
+  
+  // Declare new update
+  layer.update = function( time )
+  {
+    // Update original layer to get binding work
+    original.update( time );
+    baseUpdate( time );
+    
+    // Update each layer included
+    var offset = 0;
+    foreach ( subLayers, function( key, object )
+    {
+      object.update( time + params.exposureTime * offset / subLayers.length + shutterOffset );
+      
+      // Manually set alpha and blendMode in case of bindings
+      object.source.alpha = subAlphas[ offset ];
+      object.source.blendMode = "add";
+      
+      offset ++;
+    });
+  };
+  
+  return layer;
+};
+
+
+Global._set( "__akari", Akari );
