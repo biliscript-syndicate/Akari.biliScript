@@ -39,19 +39,19 @@ Akari.biliScript is not...
   You can. But... do me a personal favor and don't.
 
 Contribute
-==========
+----------
 
-You are welcome to make any improvements to the Akari.* namespaces, as well as writing your own extension namespaces! Just keep in mind that:
+You are welcome to make any improvements to the Akari.* namespaces, to write your own extension namespaces, or of course to give away a new sample! Just keep in mind that:
 
 1. Keep the Akari.* namespaces generic.
 
    Those namespaces are only for the most essential and generic stuff. Complex and/or esoteric Effects and such should be in their own, or your personally named namespaces. This is to keep a "essentials" copy clean and short (it is already pretty long now!)
 
-2. Keep up the extensive comments and follow my code formatting style.
+2. Be consistent.
 
    The extensive comments help users and other contributers know what your script is doing, making it easier to use/improve the helper. It also promotes consistency and beauty as a whole. Meanwhile, with so many mode-8 Comment Artists not knowing that much about the platform, it can promote literacy as well.
 
 License
-=======
+-------
 
 Akari.biliScript is licensed under GNU GPLv3. Please read Akari.Template.biliScript for details.
