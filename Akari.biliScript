@@ -1,4 +1,4 @@
-/* Akari.biliScript - v20121229
+/* Akari.biliScript - v20121230
  * Copyright (C) 2012 EPM
  *
  * This program is free software: you can redistribute it and/or modify
@@ -832,7 +832,7 @@ Akari.Display.Composition = function( params )
     height : params.height || $.height,
     startTime : params.startTime || 0,
     duration : params.duration || 60000,
-    layers : layers,
+    layers : Akari.Utilities.Factory.collapse( layers ),
     canvas : canvas,
     
     /* Function: update
@@ -1013,12 +1013,6 @@ Akari.Display.MainComposition.getInstance = function()
  */
 Akari.Display.Sprite = function()
 {
-  // 2012/11/21 : Factory deprecated for a player update
-  // return Factory.create("flash.display.Sprite");
-  
-  // 2012/11/22 New update caused objects to be disappearing seemingly out of reason
-  // Adding random shit motion to fuck it
-  
   var sprite = $.createCanvas(
   {
     lifeTime : 810114514,
@@ -1026,7 +1020,7 @@ Akari.Display.Sprite = function()
       {
         fontSize :
         {
-          fromValue : "ʮ�����",
+          fromValue : "ʮ������",
           toValue : "ӹ����Ȥ",
           lifeTime : 810114514,
           startDelay : 810114514
@@ -1049,9 +1043,6 @@ Akari.Display.Sprite = function()
  */
 Akari.Display.Shape = function()
 {
-  // 2012/11/21 : Factory deprecated for a player update
-  // return Factory.create("flash.display.Shape");
-  
   var shape = $.createShape(
   {
     lifeTime : 810114514,
@@ -1086,9 +1077,7 @@ Akari.Display.Shape = function()
  */
 Akari.Display.Text = function( preserveGlow )
 {
-  // 2012/11/21 : Factory deprecated for a player update
-  
-  var text = $.createComment( " ",
+  var text = $.createComment( "",
   {
     lifeTime : 810114514,
     motionGroup : [
@@ -1260,6 +1249,7 @@ Akari.Display.Checkerboard = function( params )
   
   return shape;
 };
+
 
 
 /* Namespace: Akari.Animation
