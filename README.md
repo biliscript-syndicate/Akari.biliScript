@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 Akari.biliScript
 ================
 
@@ -114,4 +113,3 @@ License
 =======
 
 Akari.biliScript is licensed under GNU GPLv3. Please read Akari.Template.biliScript for details.
->>>>>>> fix legacy function naming problems
