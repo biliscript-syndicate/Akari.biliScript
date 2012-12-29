@@ -1,4 +1,4 @@
-ï»¿// {{Depend : Akari}} //
+// {{Depend : Akari}} //
 // {{Depend : Akari.Utilities}} //
 
 /* Namespace: Akari.Display
@@ -372,7 +372,7 @@ Akari.Display.Composition = function( params )
     height : params.height || $.height,
     startTime : params.startTime || 0,
     duration : params.duration || 60000,
-    layers : Factory.collapse( layers ),
+    layers : Akari.Utilities.Factory.collapse( layers ),
     canvas : canvas,
     
     /* Function: update
@@ -560,8 +560,8 @@ Akari.Display.Sprite = function()
       {
         fontSize :
         {
-          fromValue : "Ê®Íò¾ÅÍò",
-          toValue : "Ó¹Ë×ÇéÈ¤",
+          fromValue : "Ê®ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½",
+          toValue : "Ó¹ï¿½ï¿½ï¿½ï¿½È¤",
           lifeTime : 810114514,
           startDelay : 810114514
         }
@@ -590,8 +590,8 @@ Akari.Display.Shape = function()
       {
         fontSize :
         {
-          fromValue : "¹Å°Ýº£ÎÄ",
-          toValue : "Ã÷ÄêÔÙ¼û",
+          fromValue : "ï¿½Å°Ýºï¿½ï¿½ï¿½",
+          toValue : "ï¿½ï¿½ï¿½ï¿½ï¿½Ù¼ï¿½",
           lifeTime : 810114514,
           startDelay : 810114514
         }
@@ -624,8 +624,8 @@ Akari.Display.Text = function( preserveGlow )
       {
         fontSize :
         {
-          fromValue : "ÅÔ±ßÔÓÒô",
-          toValue : "Ò»Ö±¶¼ÔÚ",
+          fromValue : "ï¿½Ô±ï¿½ï¿½ï¿½ï¿½ï¿½",
+          toValue : "Ò»Ö±ï¿½ï¿½ï¿½ï¿½",
           lifeTime : 810114514,
           startDelay : 810114514
         }
