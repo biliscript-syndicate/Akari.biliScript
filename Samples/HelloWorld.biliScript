@@ -1,0 +1,8 @@
+/* Sample: HelloWorld
+ * A minimalist sample that displays a single line of that famous quote on the screen for a minute.
+ *
+ * The sample can serve as a introduction but is by no means good practice. Note that Akari.biliScript is more for big stuff,
+ * and less for code shorter than the library itself. A simple $.createComment( "Hello World!", { lifeTime : 60 } ); would be much more fit for this job.
+ */
+
+( Akari = Global._get( "__akari" ) ).execute( Akari.Display.MainComposition({ layers : [ Akari.Display.Layer({ source : Akari.Display.Text(), inPoint : 0, outPoint : 60000, properties : { text : "Hello World!" } }) ] }) );
