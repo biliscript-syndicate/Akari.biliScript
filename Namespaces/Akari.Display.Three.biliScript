@@ -1,0 +1,97 @@
+// {{Depend : Akari}} //
+// {{Depend : Akari.Utilities}} //
+// {{Depend : Akari.Display}} //
+
+/* Namespace: Akari.Display.Three
+ * Extension for more advanced 3D features.
+ */
+Akari.Display.Three = {};
+
+/* Class: Advanced3DComposition
+ * A Composition with enhanced 3D capabilities
+ *
+ * width
+ *   [default] $.width
+ *   A Number specifying stage width.
+ * height
+ *   [default] $.height
+ *   A Number specifying stage height.
+ * startTime
+ *   [default] 0
+ *   A Number, the time (in milliseconds) when the timeline starts.
+ * duration
+ *   [default] 60000
+ *   A Number, the length (in milliseconds) of the timeline.
+ * layers
+ *   [default] []
+ *   An Array of Layers. Layers will be sorted by their z-order.
+ * cameras
+ *   [default] []
+ *   An Array of Cameras. Ones with index larger win.
+ */
+Akari.Display.Three.Advanced3DComposition = function( params )
+{
+  // Create base Composition
+  // Turning off hasBoundaries since it's not going to work. Wrap with a layer or another comp instead.
+  params.hasBoundaries = false;
+  var composition = Akari.Display.Composition( params );
+  
+  // Add matrix3D for the composition canvas.
+  composition.canvas.transform.matrix3D = $.createMatrix3D();
+  
+  // Private function for finding the current camera
+  var getCurrentCamera = function( time )
+  {
+    for ( var i = params.cameras.length - 1; i >= 0; i -- )
+    {
+      if ( params.cameras[ i ].inPoint > time ) continue;
+      if ( params.cameras[ i ].outPoint <= time ) continue;
+      return params.cameras[ i ];
+    }
+    return null;
+  };
+  
+  // Simulate inheritance
+  var baseUpdate = Akari.Utilities.Factory.clone( composition.update, composition );
+  
+  composition.update = function( time )
+  {
+    // Call base update here
+    baseUpdate( time );
+    
+    // Reset current matrix3D
+    composition.canvas.transform.matrix3D.identity();
+    
+    // Fetch the current camera
+    var camera = getCurrentCamera( time );
+    
+    if ( camera )
+    {
+      // Translate the scene
+      composition.canvas.transform.matrix3D.appendTranslation( - camera.x, - camera.y, - camera.z );
+      
+      // Apply rotations, we need to get it pointing into Z
+      if ( camera.pointOfInterest.z != camera.z )
+      {
+        // X-axis rotation
+        composition.canvas.transform.matrix3D.appendRotation(
+          - Math.atan(( camera.pointOfInterest.x - camera.x ) / ( camera.pointOfInterest.z - camera.z )) * 180 / Math.PI,
+          $.createVector3D( 1, 0, 0 )
+        );
+        // Y-axis rotation
+        composition.canvas.transform.matrix3D.appendRotation(
+          - Math.atan(( camera.pointOfInterest.y - camera.y ) / ( camera.pointOfInterest.z - camera.z )) * 180 / Math.PI,
+          $.createVector3D( 0, 1, 0 )
+        );
+      }
+      
+      // Zoom the scene in according to camera settings
+      composition.canvas.transform.matrix3D.appendTranslation( 0, 0, - camera.zoom );
+      
+      // TODO: deal with perspective projection
+      // That half-assed API is a pain to deal with...
+    }
+  };
+  
+  return composition;
+};
