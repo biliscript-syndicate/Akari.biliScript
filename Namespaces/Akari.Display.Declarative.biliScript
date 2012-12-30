@@ -1,0 +1,177 @@
+// {{Depend : Akari}} //
+// {{Depend : Akari.Utilities}} //
+// {{Depend : Akari.Display}} //
+
+/* Namespace: Akari.Display.Declarative
+ * Classes for describing shapes and animations.
+ */
+Akari.Display.Declarative = {};
+
+/* Enum: InstructionType
+ * Types of instructions.
+ */
+Akari.Display.Declarative.InstructionType =
+{
+  /* beginFill
+   * Specifies a one-color fill.
+   *
+   * color
+   *   [default] 0xFFFFFF
+   *   The color to be filled.
+   * alpha
+   *   [default] 1.0
+   *   Opacity of the fill.
+   */
+  beginFill : { perform : function( graphics, data ) { graphics.beginFill( data.color || 0xFFFFFF, data.alpha || 1.0 ); } },
+  
+  /* endFill
+   * Ends the current fill.
+   */
+  endFill : { perform : function( graphics, data ) { graphics.endFill(); } },
+   
+  /* lineStyle
+   * Specifies a one-color line style.
+   *
+   * thickness
+   *   [default] null
+   *   Thickness of the line.
+   * color
+   *   [default] 0x0
+   *   The color of the stroke.
+   * alpha
+   *   [default] 1.0
+   *   Opacity of the stroke.
+   * pixelHinting
+   *   [default] false
+   *   A Boolean value that specifies whether to hint strokes to full pixels.
+   * scaleMode
+   *   [default] "normal"
+   *   One of the LineScaleModes.
+   * caps
+   *   [default] null
+   *   Specifies the type of caps at the end of lines.
+   * joints
+   *   [default] null
+   *   Specifies the type of joint appearance used at angles.
+   * miterLimit
+   *   [default] 3
+   *   A number that indicates the limit at which a miter is cut off.
+   */
+  lineStyle : { perform : function( graphics, data ) { graphics.lineStyle( data.thickness, data.color || 0x0, data.alpha || 1.0, data.pixelHinting || false, data.scaleMode || "normal", data.caps || null, data.joints || null, data.miterLimit || 3 ); } },
+  
+  /* path
+   * Represents a series of commands for drawing. Currently the only drawing instruction avaliable.
+   *
+   * commands
+   *   A Vector.<int> of commands.
+   * data
+   *   A Vector.<int> of data.
+   * winding
+   *   [default] "evenOdd"
+   *   Path winding rule.
+   */
+  path : { perform : function( graphics, data ) { graphics.drawPath( data.commands, data.data, data.winding || "evenOdd" ); } }
+};
+
+/* Class: Instruction
+ * A class representing an drawing instruction.
+ *
+ * type
+ *   One of the InstructionTypes.
+ * data
+ *   Parameters of the instruction.
+ */
+Akari.Display.Declarative.Instruction = function( params )
+{
+  return Akari.Utilities.Factory.extend( { perform : function( graphics ) { this.type.perform( graphics, this.data ); } }, params );
+};
+
+/* Class: Frame
+ * A class representing a series of instructions that make up a frame.
+ *
+ * instructions
+ *   Array of Instructions.
+ */
+Akari.Display.Declarative.Frame = function( params )
+{
+  return Akari.Utilities.Factory.extend(
+  {
+    /* Function: perform
+     * Performs all actions contained in instructions.
+     *
+     * graphics
+     *   The Graphics to draw on.
+     */
+    perform : function( graphics )
+    {
+      for ( var i = 0; i < this.instructions.length; i ++ )
+      {
+        this.instructions[ i ].perform( graphics );
+      }
+    }
+  }, params );
+};
+
+/* Class: Animation
+ * A DynamicLayerSourceProvider with primitive stop motion animation support.
+ *
+ * frames
+ *   An Array of Frames.
+ * frameRate
+ *   [default] 12
+ *   The rate at which the animation is played.
+ *   Setting a rate much too high while having a complex scene can probably cause performance problems.
+ */
+Akari.Display.Declarative.Animation = function( params )
+{
+  var lastFrame = 0;
+  var frameRate = params.frameRate || 12;
+  
+  // Function for getting the current frame
+  var findCurrentIndex = function( time )
+  {
+    return Math.floor( time * frameRate / 1000 );
+  };
+  
+  // Create a canvas for drawing stuff directly
+  var canvas = Akari.Display.Shape();
+  
+  // Return a new object
+  return
+  {
+    startTime : 0,
+    duration : params.frames.length * 1000 / frameRate,
+    canvas : canvas,
+    
+    /* Function: update
+     * Updates the canvas to fit the timeline.
+     *
+     * time
+     *   A Number, the current time (in milliseconds) on the Animation's own timeline.
+     */
+    update : function( time )
+    {
+      // Check if an update is needed
+      var currentFrame = findCurrentIndex( time );
+      if ( currentFrame === lastFrame ) return;
+      
+      // Update the graphics
+      // Force a graphics.clear here to avoid potential use of Animation for incremental drawing. Every frame have to stand on itself to enforce seekability.
+      canvas.graphics.clear();
+      
+      // Draw the frame
+      params.frames[ currentFrame ].perform( canvas.graphics );
+      
+      // Set the lastFrame property
+      lastFrame = currentFrame;
+    },
+    
+    /* Function: clone
+     * Custom clone function for canvas and such.
+     */
+    clone : function()
+    {
+      return Akari.Display.Declarative.Animation( Akari.Utilities.Factory.clone( params ) );
+    }
+  };
+};

@@ -244,21 +244,21 @@ Akari.Display.DynamicVectorTextLayer = function( params )
   return layer;
 };
 
-/* Class: CompositionLayer
- * A type of layer specialized to nest compositions.
+/* Class: DynamicSourceLayer
+ * A type of layer specialized to handle dynamic layer sources.
  *
- * composition
- *   A Composition.
+ * provider
+ *   A DynamicLayerSourceProvider.
  * inPoint
  *   A Number, the time (in milliseconds) at which the layers enters.
  * outPoint
  *   A Number, the time (in milliseconds) at which the layers exits.
  * inPointTime
- *   [default] composition.startTime
- *   A Number, the time (in milliseconds) the Composition is at when the layers enters.
+ *   [default] provider.startTime
+ *   A Number, the time (in milliseconds) the DynamicLayerSourceProvider is at when the layers enters.
  * outPointTime
- *   [default] composition.startTime + composition.duration
- *   A Number, the time (in milliseconds) the Composition is at when the layers exits.
+ *   [default] provider.startTime + provider.duration
+ *   A Number, the time (in milliseconds) the DynamicLayerSourceProvider is at when the layers exits.
  * timeRemap
  *   [default] null
  *   A Function or null, depending on whether you need time remapping. Setting this function overrides inPointTime and outPointTime settings.
@@ -267,16 +267,16 @@ Akari.Display.DynamicVectorTextLayer = function( params )
  *   [default] {}
  *   An Object, containing values or Bindings for each AS3 property.
  */
-Akari.Display.CompositionLayer = function( params )
+Akari.Display.DynamicSourceLayer = function( params )
 {
-  var nestedComposition = params.composition;
-  var inPointTime = params.inPointTime || nestedComposition.startTime;
-  var outPointTime = params.outPointTime || nestedComposition.startTime + nestedComposition.duration;
+  var nestedProvider = params.provider;
+  var inPointTime = params.inPointTime || nestedProvider.startTime;
+  var outPointTime = params.outPointTime || nestedProvider.startTime + nestedProvider.duration;
   
   // Create a Layer.
   var layer = Akari.Display.Layer(
   {
-    source : nestedComposition.canvas,
+    source : nestedProvider.canvas,
     inPoint : params.inPoint,
     outPoint : params.outPoint,
     properties : params.properties
@@ -285,7 +285,7 @@ Akari.Display.CompositionLayer = function( params )
   // Simulate inheritance by making a backup of update function.
   var baseUpdate = Akari.Utilities.Factory.clone( layer.update, layer );
   
-  // Declare new update regarding nested Composition timeline.
+  // Declare new update regarding nested DynamicLayerSourceProvider timeline.
   // Declare different functions according to having timeRemap or not to improve performance.
   if ( params.timeRemap )
   {
@@ -293,9 +293,9 @@ Akari.Display.CompositionLayer = function( params )
     {
       baseUpdate( time );
       
-      // Update nested Composition to fit timeline.
+      // Update nested DynamicLayerSourceProvider to fit timeline.
       if ( this.source.visible )
-        nestedComposition.update( params.timeRemap( time ) );
+        nestedProvider.update( params.timeRemap( time ) );
     };
   }
   else
@@ -306,7 +306,7 @@ Akari.Display.CompositionLayer = function( params )
       
       // Update nested Composition to fit timeline.
       if ( this.source.visible )
-        nestedComposition.update( inPointTime + ( time - params.inPoint ) * (outPointTime - inPointTime) / ( params.outPoint - params.inPoint) );
+        nestedProvider.update( inPointTime + ( time - params.inPoint ) * (outPointTime - inPointTime) / ( params.outPoint - params.inPoint) );
     };
   }
     
@@ -315,7 +315,7 @@ Akari.Display.CompositionLayer = function( params )
    */
   layer.clone = function()
   {
-    return Akari.Display.CompositionLayer( Akari.Utilities.Factory.clone( params ) );
+    return Akari.Display.DynamicSourceLayer( Akari.Utilities.Factory.clone( params ) );
   };
   
   // Update Layer for a first time to prevent flashing
@@ -325,7 +325,7 @@ Akari.Display.CompositionLayer = function( params )
 };
 
 /* Class: Composition
- * Provides functions as the framework of a scene.
+ * A DynamicLayerSourceProvider that provides functions as the framework of a scene.
  *
  * width
  *   [default] $.width

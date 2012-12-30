@@ -95,6 +95,7 @@ Akari.root = function()
   }
 }();
 
+
 /* Namespace: Akari.Utilities
  * Provide utilities not directly related to presenting content.
  */
@@ -704,21 +705,21 @@ Akari.Display.DynamicVectorTextLayer = function( params )
   return layer;
 };
 
-/* Class: CompositionLayer
- * A type of layer specialized to nest compositions.
+/* Class: DynamicSourceLayer
+ * A type of layer specialized to handle dynamic layer sources.
  *
- * composition
- *   A Composition.
+ * provider
+ *   A DynamicLayerSourceProvider.
  * inPoint
  *   A Number, the time (in milliseconds) at which the layers enters.
  * outPoint
  *   A Number, the time (in milliseconds) at which the layers exits.
  * inPointTime
- *   [default] composition.startTime
- *   A Number, the time (in milliseconds) the Composition is at when the layers enters.
+ *   [default] provider.startTime
+ *   A Number, the time (in milliseconds) the DynamicLayerSourceProvider is at when the layers enters.
  * outPointTime
- *   [default] composition.startTime + composition.duration
- *   A Number, the time (in milliseconds) the Composition is at when the layers exits.
+ *   [default] provider.startTime + provider.duration
+ *   A Number, the time (in milliseconds) the DynamicLayerSourceProvider is at when the layers exits.
  * timeRemap
  *   [default] null
  *   A Function or null, depending on whether you need time remapping. Setting this function overrides inPointTime and outPointTime settings.
@@ -727,16 +728,16 @@ Akari.Display.DynamicVectorTextLayer = function( params )
  *   [default] {}
  *   An Object, containing values or Bindings for each AS3 property.
  */
-Akari.Display.CompositionLayer = function( params )
+Akari.Display.DynamicSourceLayer = function( params )
 {
-  var nestedComposition = params.composition;
-  var inPointTime = params.inPointTime || nestedComposition.startTime;
-  var outPointTime = params.outPointTime || nestedComposition.startTime + nestedComposition.duration;
+  var nestedProvider = params.provider;
+  var inPointTime = params.inPointTime || nestedProvider.startTime;
+  var outPointTime = params.outPointTime || nestedProvider.startTime + nestedProvider.duration;
   
   // Create a Layer.
   var layer = Akari.Display.Layer(
   {
-    source : nestedComposition.canvas,
+    source : nestedProvider.canvas,
     inPoint : params.inPoint,
     outPoint : params.outPoint,
     properties : params.properties
@@ -745,7 +746,7 @@ Akari.Display.CompositionLayer = function( params )
   // Simulate inheritance by making a backup of update function.
   var baseUpdate = Akari.Utilities.Factory.clone( layer.update, layer );
   
-  // Declare new update regarding nested Composition timeline.
+  // Declare new update regarding nested DynamicLayerSourceProvider timeline.
   // Declare different functions according to having timeRemap or not to improve performance.
   if ( params.timeRemap )
   {
@@ -753,9 +754,9 @@ Akari.Display.CompositionLayer = function( params )
     {
       baseUpdate( time );
       
-      // Update nested Composition to fit timeline.
+      // Update nested DynamicLayerSourceProvider to fit timeline.
       if ( this.source.visible )
-        nestedComposition.update( params.timeRemap( time ) );
+        nestedProvider.update( params.timeRemap( time ) );
     };
   }
   else
@@ -766,7 +767,7 @@ Akari.Display.CompositionLayer = function( params )
       
       // Update nested Composition to fit timeline.
       if ( this.source.visible )
-        nestedComposition.update( inPointTime + ( time - params.inPoint ) * (outPointTime - inPointTime) / ( params.outPoint - params.inPoint) );
+        nestedProvider.update( inPointTime + ( time - params.inPoint ) * (outPointTime - inPointTime) / ( params.outPoint - params.inPoint) );
     };
   }
     
@@ -775,7 +776,7 @@ Akari.Display.CompositionLayer = function( params )
    */
   layer.clone = function()
   {
-    return Akari.Display.CompositionLayer( Akari.Utilities.Factory.clone( params ) );
+    return Akari.Display.DynamicSourceLayer( Akari.Utilities.Factory.clone( params ) );
   };
   
   // Update Layer for a first time to prevent flashing
@@ -785,7 +786,7 @@ Akari.Display.CompositionLayer = function( params )
 };
 
 /* Class: Composition
- * Provides functions as the framework of a scene.
+ * A DynamicLayerSourceProvider that provides functions as the framework of a scene.
  *
  * width
  *   [default] $.width
@@ -1859,6 +1860,182 @@ Akari.Display.Effects.ForceMotionBlur = function( params )
   };
   
   return layer;
+};
+
+
+
+/* Namespace: Akari.Display.Declarative
+ * Classes for describing shapes and animations.
+ */
+Akari.Display.Declarative = {};
+
+/* Enum: InstructionType
+ * Types of instructions.
+ */
+Akari.Display.Declarative.InstructionType =
+{
+  /* beginFill
+   * Specifies a one-color fill.
+   *
+   * color
+   *   [default] 0xFFFFFF
+   *   The color to be filled.
+   * alpha
+   *   [default] 1.0
+   *   Opacity of the fill.
+   */
+  beginFill : { perform : function( graphics, data ) { graphics.beginFill( data.color || 0xFFFFFF, data.alpha || 1.0 ); } },
+  
+  /* endFill
+   * Ends the current fill.
+   */
+  endFill : { perform : function( graphics, data ) { graphics.endFill(); } },
+   
+  /* lineStyle
+   * Specifies a one-color line style.
+   *
+   * thickness
+   *   [default] null
+   *   Thickness of the line.
+   * color
+   *   [default] 0x0
+   *   The color of the stroke.
+   * alpha
+   *   [default] 1.0
+   *   Opacity of the stroke.
+   * pixelHinting
+   *   [default] false
+   *   A Boolean value that specifies whether to hint strokes to full pixels.
+   * scaleMode
+   *   [default] "normal"
+   *   One of the LineScaleModes.
+   * caps
+   *   [default] null
+   *   Specifies the type of caps at the end of lines.
+   * joints
+   *   [default] null
+   *   Specifies the type of joint appearance used at angles.
+   * miterLimit
+   *   [default] 3
+   *   A number that indicates the limit at which a miter is cut off.
+   */
+  lineStyle : { perform : function( graphics, data ) { graphics.lineStyle( data.thickness, data.color || 0x0, data.alpha || 1.0, data.pixelHinting || false, data.scaleMode || "normal", data.caps || null, data.joints || null, data.miterLimit || 3 ); } },
+  
+  /* path
+   * Represents a series of commands for drawing. Currently the only drawing instruction avaliable.
+   *
+   * commands
+   *   A Vector.<int> of commands.
+   * data
+   *   A Vector.<int> of data.
+   * winding
+   *   [default] "evenOdd"
+   *   Path winding rule.
+   */
+  path : { perform : function( graphics, data ) { graphics.drawPath( data.commands, data.data, data.winding || "evenOdd" ); } }
+};
+
+/* Class: Instruction
+ * A class representing an drawing instruction.
+ *
+ * type
+ *   One of the InstructionTypes.
+ * data
+ *   Parameters of the instruction.
+ */
+Akari.Display.Declarative.Instruction = function( params )
+{
+  return Akari.Utilities.Factory.extend( { perform : function( graphics ) { this.type.perform( graphics, this.data ); } }, params );
+};
+
+/* Class: Frame
+ * A class representing a series of instructions that make up a frame.
+ *
+ * instructions
+ *   Array of Instructions.
+ */
+Akari.Display.Declarative.Frame = function( params )
+{
+  return Akari.Utilities.Factory.extend(
+  {
+    /* Function: perform
+     * Performs all actions contained in instructions.
+     *
+     * graphics
+     *   The Graphics to draw on.
+     */
+    perform : function( graphics )
+    {
+      for ( var i = 0; i < this.instructions.length; i ++ )
+      {
+        this.instructions[ i ].perform( graphics );
+      }
+    }
+  }, params );
+};
+
+/* Class: Animation
+ * A DynamicLayerSourceProvider with primitive stop motion animation support.
+ *
+ * frames
+ *   An Array of Frames.
+ * frameRate
+ *   [default] 12
+ *   The rate at which the animation is played.
+ *   Setting a rate much too high while having a complex scene can probably cause performance problems.
+ */
+Akari.Display.Declarative.Animation = function( params )
+{
+  var lastFrame = 0;
+  var frameRate = params.frameRate || 12;
+  
+  // Function for getting the current frame
+  var findCurrentIndex = function( time )
+  {
+    return Math.floor( time * frameRate / 1000 );
+  };
+  
+  // Create a canvas for drawing stuff directly
+  var canvas = Akari.Display.Shape();
+  
+  // Return a new object
+  return
+  {
+    startTime : 0,
+    duration : params.frames.length * 1000 / frameRate,
+    canvas : canvas,
+    
+    /* Function: update
+     * Updates the canvas to fit the timeline.
+     *
+     * time
+     *   A Number, the current time (in milliseconds) on the Animation's own timeline.
+     */
+    update : function( time )
+    {
+      // Check if an update is needed
+      var currentFrame = findCurrentIndex( time );
+      if ( currentFrame === lastFrame ) return;
+      
+      // Update the graphics
+      // Force a graphics.clear here to avoid potential use of Animation for incremental drawing. Every frame have to stand on itself to enforce seekability.
+      canvas.graphics.clear();
+      
+      // Draw the frame
+      params.frames[ currentFrame ].perform( canvas.graphics );
+      
+      // Set the lastFrame property
+      lastFrame = currentFrame;
+    },
+    
+    /* Function: clone
+     * Custom clone function for canvas and such.
+     */
+    clone : function()
+    {
+      return Akari.Display.Declarative.Animation( Akari.Utilities.Factory.clone( params ) );
+    }
+  };
 };
 
 

@@ -95,11 +95,11 @@ var mainComp = MainComposition(
   
   // Use Factory.replicate to create a group of CompositionLayers containing SimpleComps.
   // Factory.replicate will take a constructor and a function that produces parameters for it.
-  layers : Factory.replicate( CompositionLayer, 24, function( i )
+  layers : Factory.replicate( DynamicSourceLayer, 24, function( i )
   {
     return
     [{
-      composition : SimpleComp(),
+      provider : SimpleComp(),
       inPoint : 0,
       outPoint : 60000,
       
@@ -109,7 +109,7 @@ var mainComp = MainComposition(
       inPointTime : i * 500,
       outPointTime : 60000,
       
-      // Notice how children of the CompositionLayer get affected by those settings.
+      // Notice how children of the DynamicSourceLayer get affected by those settings.
       properties :
       {
         // Center the layer and add some rotation to it.
