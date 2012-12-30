@@ -93,7 +93,7 @@ var mainComp = MainComposition(
   width : 1280,
   height : 720,
   
-  // Use Factory.replicate to create a group of CompositionLayers containing SimpleComps.
+  // Use Factory.replicate to create a group of DynamicSourceLayer containing SimpleComps.
   // Factory.replicate will take a constructor and a function that produces parameters for it.
   layers : Factory.replicate( DynamicSourceLayer, 24, function( i )
   {

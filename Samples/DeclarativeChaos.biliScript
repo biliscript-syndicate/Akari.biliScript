@@ -1,0 +1,99 @@
+/* Sample: DeclarativeChaos
+ * Demonstrates usage of the Akari.Display.Declarative namespace.
+ *
+ * The sample generates a stop frame animation about, well, randomly placed line segments flying around on the screen.
+ * Akari.Display.Declarative was written in an attempt to provide support for both baked animation and ones generated at runtime.
+ */
+
+// Fetch a global reference for Akari
+var Akari = Global._get( "__akari" );
+
+// Import namespaces by extending this closure
+Akari.Utilities.Factory.extend( this, Akari.Utilities );
+Factory.extend( this, Akari.Display );
+Factory.extend( this, Akari.Display.Declarative );
+Factory.extend( this, Akari.Animation );
+
+// Create a class for that crazy instruction we want
+function CrazyFrame( stops, lineStyle )
+{
+  // First generate a command vector that we'll use in the instruction
+  // We have to create empty ones like this because, oh well, go blame b15h1.
+  var commandsVector = $.toIntVector([]);
+  var dataVector = $.toNumberVector([]);
+  
+  // Loop and randomize the lines
+  for ( var i = 0; i < stops; i ++ )
+  {
+    // 3 is the code for curveTo. We want all lines be crazy twists that seems much more crazier than straight lines.
+    commandsVector.push( 3 );
+    // Push four random numbers as the coordinates
+    dataVector.push( Math.random() * 1280.0 );
+    dataVector.push( Math.random() * 720.0 );
+    dataVector.push( Math.random() * 1280.0 );
+    dataVector.push( Math.random() * 720.0 );
+  }
+  
+  // After we have those vectors, we can proceed to create the Frame
+  return Frame(
+  {
+    instructions :
+    [
+      // We needn't clear the screen since it's done by the Frame class for us
+      // First set a lineStyle, or our lines would be invisible. We'll just use the lineStyle passed to the constructor
+      Instruction({ type : InstructionType.lineStyle, data : lineStyle }),
+      
+      // Then follow up with a path instruction that does the real drawing.
+      // We should also pass the data we generated to it.
+      Instruction({ type : InstructionType.path, data : { commands : commandsVector, data : dataVector } })
+    ]
+  });
+}
+
+// Now we can create our MainComposition. It should be familiar now.
+var mainComp = MainComposition(
+{
+  width : 1280,
+  height : 720,
+  layers :
+  [
+    // Again we use a DynamicSourceLayer, but with an Animation as provider now.
+    DynamicSourceLayer(
+    {
+      provider : Animation(
+      {
+        // It's safe to use Factory.replicate here, too.
+        frames : Factory.replicate( CrazyFrame, 60, function( i )
+        {
+          // Randomize thickness to make it not too dull
+          return [ Math.round( Math.random() * 100 ) + 100, { thickness : Math.ceil( Math.random() * 8.0 ), color : 0xFFFFFF } ];
+        }),
+        
+        frameRate : 4
+      }),
+      
+      // While our animation is only 15 seconds long, duration is set to be 1 minute. We'll deal with the stretching later.
+      inPoint : 0,
+      outPoint : 60000,
+      
+      // By default, DynamicSourceLayer will stretch its provider's timeline to fit inPoint and outPoint,
+      // but we can override it with a Binding on timeRemap. Here a repeating KeyframesBind is used to repeat the animation.
+      timeRemap : KeyframesBind(
+      {
+        keyframes :
+        [
+          // We don't really want speed changes, so we just map time as it is.
+          // However time changes, even exotic ones, are possible because you can put any Binding here, just like a ordinary property.
+          Keyframe({ time : 0, value : 0 }),
+          Keyframe({ time : 15000, value : 15000 })
+        ],
+        
+        // Here again we make it reapat, so any time past 15s will be wrapped back.
+        mode : KeyframesBindMode.repeat
+      })
+    })
+  ]
+});
+
+// That's it! Time to see it in action.
+Akari.execute( mainComp );

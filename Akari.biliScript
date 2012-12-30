@@ -1966,6 +1966,9 @@ Akari.Display.Declarative.Frame = function( params )
      */
     perform : function( graphics )
     {
+      // Force a graphics.clear here to avoid potential use of Animation for incremental drawing. Every frame have to stand on itself to enforce seekability.
+      graphics.clear();
+      
       for ( var i = 0; i < this.instructions.length; i ++ )
       {
         this.instructions[ i ].perform( graphics );
@@ -2018,10 +2021,6 @@ Akari.Display.Declarative.Animation = function( params )
       if ( currentFrame === lastFrame ) return;
       
       // Update the graphics
-      // Force a graphics.clear here to avoid potential use of Animation for incremental drawing. Every frame have to stand on itself to enforce seekability.
-      canvas.graphics.clear();
-      
-      // Draw the frame
       params.frames[ currentFrame ].perform( canvas.graphics );
       
       // Set the lastFrame property
