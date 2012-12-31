@@ -1,0 +1,20 @@
+/* Sample: EmptyProject
+ * A script that does nothing.
+ *
+ * Used in a getting started tutorial.
+ */
+ 
+// Fetch a global reference for Akari
+var Akari = Global._get( "__akari" );
+
+// Import namespaces here to make later access easier.
+Akari.Utilities.Factory.extend( this, Akari.Utilities );
+Akari.Utilities.Factory.extend( this, Akari.Display );
+
+// Create an empty MainComposition that will be our container for everything.
+var mainComp = MainComposition(
+{
+});
+
+// Call to Akari to put the MainComposition on the screen.
+Akari.execute( mainComp );
