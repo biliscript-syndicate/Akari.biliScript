@@ -1,57 +1,56 @@
-Akari.biliScript
+﻿Akari.biliScript
 ================
 
-> akari / noun.
+> あかり 【名】 
 >
-> 1. light; illumination; glow; gleam;
-> 2. lamp; light
+> 1. 灯
+> 2. 希望，光明
 
-Akari.biliScript is an open source (also by nature of player scripts) helper for authoring Comment Arts in BiliPlayer, the comment player for bilibili.tv, with its distinctive mode-8 scripting capability. The helper provides, by design, seekability and the ability to fit its display regardless of player settings (as far as $.root remains accessible).
+Akari.biliScript是一个针对BiliPlayer的开源弹幕艺术辅助框架。这个辅助框架根据设计允许进度条跳转，并会将内容自动匹配到播放器窗口上。
 
-Akari.biliScript was originally written for Round and Round under the temporary name of "Comment Art Helper for submission Round and Round". It was renamed "Akari.biliScript" some time after the submission was made public.
+Akari.biliScript原本是为参赛作品Round and Round写作的，曾用名"Comment Art Helper for submission Round and Round"。正式名称的重命名是在作品投稿后一段时间以后的事情。
 
-Getting
--------
+获取
+----
+如果你需要比提供的.biliScript文件更大的自由度，请下载Repository，变更需要的命名空间，然后将Akari.Template.biliScript拖拽到BiliScript.AkariBuilder.exe上。你将会得到一个Akari.biliScript，把它的内容发送到第0秒就行了。目前而言执行这个可执行文件需要安装.net Framework 4.5，因为写它的时候只是作为个人小工具。
 
-If you are not satisfied by simply clicking a recent "processed" .biliScript, just download the repository, remove the namespaces you don't need (add ones you need), and drag Akari.Template.biliScript onto BiliScript.AkariBuilder.exe. You will get a Akari.biliScript whose contents you can just copy and post to 0:0. Currently you will have to have .net Framework 4.5 on your computer to run the executable (since it was originally just a tiny utility for myself).
+Akari.biliScript并不能……
+------------------------
 
-Akari.biliScript is not...
---------------------------
-
-* A magic header/footer that will make your Comment Art attractive in a second.
+* 把它贴上你的弹幕艺术就变厉害了。
   
-  No, it's just plain not possible. Fullscreen / widescreen capability are easy to add to any Comment Art, but just that won't take you anywere. Your contents are what people really care about.
+  这是根本不可能的，尽管加上那个全屏、宽屏的匹配功能挺容易，但仅仅是匹配屏幕没有什么意义，人们更在意你的内容。
 
-* A script that make your life easier when you want to spit out a simple .lrc file on the screen.
+* 在你准备往屏幕上扔一坨.lrc的时候助你一臂之力。
 
-  Though possible, it's an overkill. Akari.biliScript is designed and written to house really complex Comment Arts, preferably full-screen ones over a solid color video. When used for simple projects, the declarative descriptions of Compositions and Layers and all the Expression stuff will prove to be heavy burdens - while being powerful tools for authoring complex scenes. The built-in imperative API should be enough for such simple tasks.
+  尽管这事真能干，这根本就是多此一举。Akari.biliScript就其设计而言是用于展示非常复杂的弹幕艺术，更理想的是用于覆盖整个画面的纯色屏视频上。如果你就拿它做一些简单的东西，那些声明式的合成和层描述还有表达式这些玩意都会来碍你的事——尽管做一些复杂的东西的时候这些都很有用。这些琐事用内建的指令API去解决就行了。
 
-* A script that depend on some insecure player hack in old versions in order to run as fast (well, "fast") as AS itself.
+* 用老版本播放器的那个不安全的漏洞来加速执行，让它和AS一样快——我刚才说了AS？
 
-  No, Akari.biliScript does not, should not and will not use such hacks to improve performance. Keeping clean improves not only productivity, but also the longevity of your works.
+  还是不了，Akari.biliScript并不也并不打算且不会使用这些东西来加快执行。保持清白既可以提升生产力，也能让你的作品活的久一点。
 
-* I want to play a game!
+* 一起来玩弹幕游戏吧！
 
-  No. Akari.biliScript is tailored to presenting pre-designed scenes, and provides absolutely no support for interactive elements. Once your MainComposition is up and running, modifying it can cause nothing but problems.
+  Akari.biliScript是做来展现预先设计好的内容的，压根就没打算支持交互性元素。一旦你把你的MainComposition放上去，修改它只能给你添麻烦。
 
-* A quick tool for creating your own version of some uncreative stuff.
+* 一个用来炒你的版本的某个无聊的冷饭的快速工具。
 
-  You can. But... do me a personal favor and don't.
+  你可以，不过你给我个面子吧，还是别了。
 
-Contribute
-----------
+参与
+----
 
-You are welcome to make any improvements to the Akari.* namespaces, to write your own extension namespaces, or of course to give away a new sample! Just keep in mind that:
+你完全可以对Akari.*这些命名空间做出你自己的改进，或者写你自己的扩展命名空间，送一个新的样例或者教程，什么都行！不过最好：
 
-1. Keep the Akari.* namespaces generic.
+1. 保持Akari.*命名空间的通用性。
 
-   Those namespaces are only for the most essential and generic stuff. Complex and/or esoteric Effects and such should be in their own, or your personally named namespaces. This is to keep a "essentials" copy clean and short (it is already pretty long now!)
+   这些命名空间应该只包括最基本的，最通用的东西。那些复杂的或者稀奇古怪的特效之类的东西应该被放在它们自己，或者你的个人命名空间里。这是为了让一个“基本”的版本干净利落而且短一点（就算是现在它也够长的了！）
 
-2. Be consistent.
+2. 保持连续性。
 
-   The extensive comments help users and other contributers know what your script is doing, making it easier to use/improve the helper. It also promotes consistency and beauty as a whole. Meanwhile, with so many mode-8 Comment Artists not knowing that much about the platform, it can promote literacy as well.
+   多写点注释没坏处：这样使用者和其他的参与者就知道你的脚本在干什么了，这样用起来或者改进起来也更容易。另外这也使得脚本看起来更具整体性，也更美观，权当是普及一下文化知识吧。
 
-License
+许可
 -------
 
-Akari.biliScript is licensed under GNU GPLv3. Please read Akari.Template.biliScript for details.
+Akari.biliScript根据GNU GPLv3进行许可。详细的请读Akari.Template.biliScript吧。
