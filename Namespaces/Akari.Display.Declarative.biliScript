@@ -115,6 +115,23 @@ Akari.Display.Declarative.Frame = function( params )
   }, params );
 };
 
+/* Class: DeclarativeShape
+ * A Shape with graphics drawn using the provided Frame.
+ *
+ * frame
+ *   The Frame to use.
+ */
+Akari.Display.Declarative.DeclarativeShape = function( frame )
+{
+  // Get an empty Shape
+  var shape = Akari.Display.Shape();
+  
+  // Perform the Frame on it
+  frame.perform( shape.graphics );
+  
+  return shape;
+};
+
 /* Class: Animation
  * A DynamicLayerSourceProvider with primitive stop motion animation support.
  *
