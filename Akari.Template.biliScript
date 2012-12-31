@@ -14,9 +14,8 @@
  * For a copy of the GNU General Public License,
  * see <http://www.gnu.org/licenses/>.
  *
- * Documenting convention:
- *
- * For those functions that accept only one Object "params", only the content of the Object is documented.
+ * 注释提示：
+ * 对于只接受params作为参数的类，注释直接写里面的内容。
  */
 
 {{AkariTemplate : Namespaces}}

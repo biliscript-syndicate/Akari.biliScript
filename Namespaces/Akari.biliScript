@@ -1,29 +1,29 @@
-
-/* Namespace: Akari
- * Contains several namespace level functions.
+﻿
+/* 命名空间：Akari
+ * 包括几个命名空间等级的函数。
  */
 Akari = {};
 
-/* Function: execute
- * Sets off the helper script running.
+/* 函数：execute
+ * 使辅助框架开始执行。
  *
  * mainComp
- *   The MainComposition of the Comment Art to present.
+ *   要展现的弹幕艺术的MainComposition。
  */
 Akari.execute = function( mainComp )
 {
-  // Create a global reference so that the main composition could be accessed in ExpressionBinds
+  // 创建一个全局的引用，这样表达式就可以访问到主合成了。
   Global._set( "__mainComp_akari", mainComp );
   
-  // Present the main composition
+  // 展现主合成
   mainComp.present();
   
-  // Set global value to indicate usage
+  // 设置全局变量，指明目前正在执行
   Global._set( "__isExecuted_akari", true );
 };
 
-/* Function: stop
- * Stops the helper for debug use
+/* 函数: stop
+ * 停止辅助框架的执行，调试使用。
  */
 Akari.stop = function()
 {
@@ -32,16 +32,16 @@ Akari.stop = function()
   Global._set( "__isExecuted_akari", null );
 };
 
-/* Function: isExecuted
- * See if the helper is already running
+/* 函数: isExecuted
+ * 判断辅助框架是否已经在执行。
  */
 Akari.isExecuted = function()
 {
   return ( Global._get("__isExecuted_akari") === true );
 };
 
-/* Property: root
- * A safe replacement for $.root in case it get banned
+/* 属性: root
+ * 万一$.root被封了，这是一个安全的替代品。
  */
 Akari.root = function()
 {
@@ -67,7 +67,7 @@ Akari.root = function()
       ]
     });
     
-    // remove 3D to make it clear by default
+    // 去除3D，这样显示就清楚了。
     sprite.transform.matrix3D = null;
     
     return sprite;
