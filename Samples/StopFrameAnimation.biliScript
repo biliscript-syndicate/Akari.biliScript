@@ -1,5 +1,5 @@
-/* Sample: DeclarativeChaos
- * Demonstrates usage of the Akari.Display.Declarative namespace.
+/* Sample: StopFrameAnimation
+ * Demonstrates usage of Akari.Display.Animation
  *
  * The sample generates a stop frame animation about, well, randomly placed line segments flying around on the screen.
  * Akari.Display.Declarative was written in an attempt to provide support for both baked animation and ones generated at runtime.
@@ -11,43 +11,19 @@ var Akari = Global._get( "__akari" );
 // Import namespaces by extending this closure
 Akari.Utilities.Factory.extend( this, Akari.Utilities );
 Factory.extend( this, Akari.Display );
-Factory.extend( this, Akari.Display.Declarative );
 Factory.extend( this, Akari.Animation );
 
 // Create a class for that crazy instruction we want
-function CrazyFrame( stops, lineStyle )
+function CrazyFrame( stops, thickness, color )
 {
-  // First generate a command vector that we'll use in the instruction
-  // We have to create empty ones like this because, oh well, go blame b15h1.
-  var commandsVector = $.toIntVector([]);
-  var dataVector = $.toNumberVector([]);
-  
-  // Loop and randomize the lines
-  for ( var i = 0; i < stops; i ++ )
+  return function( graphics )
   {
-    // 3 is the code for curveTo. We want all lines be crazy twists that seems much more crazier than straight lines.
-    commandsVector.push( 3 );
-    // Push four random numbers as the coordinates
-    dataVector.push( Math.random() * 1280.0 );
-    dataVector.push( Math.random() * 720.0 );
-    dataVector.push( Math.random() * 1280.0 );
-    dataVector.push( Math.random() * 720.0 );
-  }
-  
-  // After we have those vectors, we can proceed to create the Frame
-  return Frame(
-  {
-    instructions :
-    [
-      // We needn't clear the screen since it's done by the Frame class for us
-      // First set a lineStyle, or our lines would be invisible. We'll just use the lineStyle passed to the constructor
-      Instruction({ type : InstructionType.lineStyle, data : lineStyle }),
-      
-      // Then follow up with a path instruction that does the real drawing.
-      // We should also pass the data we generated to it.
-      Instruction({ type : InstructionType.path, data : { commands : commandsVector, data : dataVector } })
-    ]
-  });
+    for( var i = 0; i < stops; i ++ )
+    {
+      graphics.lineStyle( thickness, color );
+      graphics.curveTo( Math.random() * 1280, Math.random() * 720, Math.random() * 1280, Math.random() * 720 );
+    }
+  };
 }
 
 // Now we can create our MainComposition. It should be familiar now.
@@ -66,7 +42,7 @@ var mainComp = MainComposition(
         frames : Factory.replicate( CrazyFrame, 60, function( i )
         {
           // Randomize thickness to make it not too dull
-          return [ Math.round( Math.random() * 100 ) + 100, { thickness : Math.ceil( Math.random() * 8.0 ), color : 0xFFFFFF } ];
+          return [ Math.round( Math.random() * 100 ) + 100, Math.ceil( Math.random() * 8.0 ), 0xFFFFFF ];
         }),
         
         frameRate : 4

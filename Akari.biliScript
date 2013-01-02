@@ -887,6 +887,7 @@ Akari.Display.Animation = function( params )
       if ( currentFrame === lastFrame ) return;
       
       // Update the graphics
+      canvas.graphics.clear();
       params.frames[ currentFrame ]( canvas.graphics );
       
       // Set the lastFrame property
