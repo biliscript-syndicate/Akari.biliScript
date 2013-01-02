@@ -1,4 +1,4 @@
-/* Akari.biliScript - v20130101
+/* Akari.biliScript - v20130102
  * Copyright (C) 2013 EPM
  *
  * This program is free software: you can redistribute it and/or modify
@@ -843,6 +843,66 @@ Akari.Display.MainComposition.getInstance = function()
   return Global._get("__mainComp_akari");
 };
 
+/* Class: Animation
+ * A DynamicLayerSourceProvider with primitive stop motion animation support.
+ *
+ * frames
+ *   An Array of functions with signature function( graphics ){ }.
+ * frameRate
+ *   [default] 12
+ *   The rate at which the animation is played.
+ *   Setting a rate much too high while having a complex scene can probably cause performance problems.
+ */
+Akari.Display.Animation = function( params )
+{
+  var lastFrame = 0;
+  var frameRate = params.frameRate || 12;
+  
+  // Function for getting the current frame
+  var findCurrentIndex = function( time )
+  {
+    return Math.floor( time * frameRate / 1000 );
+  };
+  
+  // Create a canvas for drawing stuff directly
+  var canvas = Akari.Display.Shape();
+  
+  // Return a new object
+  return
+  {
+    startTime : 0,
+    duration : params.frames.length * 1000 / frameRate,
+    canvas : canvas,
+    
+    /* Function: update
+     * Updates the canvas to fit the timeline.
+     *
+     * time
+     *   A Number, the current time (in milliseconds) on the Animation's own timeline.
+     */
+    update : function( time )
+    {
+      // Check if an update is needed
+      var currentFrame = findCurrentIndex( time );
+      if ( currentFrame === lastFrame ) return;
+      
+      // Update the graphics
+      params.frames[ currentFrame ]( canvas.graphics );
+      
+      // Set the lastFrame property
+      lastFrame = currentFrame;
+    },
+    
+    /* Function: clone
+     * Custom clone function for canvas and such.
+     */
+    clone : function()
+    {
+      return Akari.Display.Animation( Akari.Utilities.Factory.clone( params ) );
+    }
+  };
+};
+
 /* Class: Sprite
  * Shortcut for AS3 Sprite.
  */
@@ -1582,315 +1642,6 @@ Akari.Animation.WiggleKeyframes = function( params )
 
 
 
-/* Namespace: Akari.Display.Effects
- * This sort of classes are effects that wrap around layers. Not to be confused with filters which should be set with Binders.
- */
-
-Akari.Display.Effects = {};
-
-/* Class: TrackMatte
- * Use another layer as a mask.
- *
- * layer
- *   The Layer to be masked.
- * mask
- *   The mask Layer.
- */
-Akari.Display.Effects.TrackMatte = function( params )
-{
-  // Add mask layer to display list and apply mask
-  params.layer.source.addChild( params.mask.source );
-  params.layer.source.mask = params.mask.source;
-  
-  // Simulate inheritance by making a backup of update function.
-  var baseUpdate = Akari.Utilities.Factory.clone( params.layer.update, params.layer );
-  
-  // Declare new update
-  params.layer.update = function( time )
-  {
-    // Update original layer and mask layer
-    baseUpdate( time );
-    params.mask.update( time );
-  };
-  
-  return params.layer;
-};
-
-/* Class: ForceMotionBlur
- * An effect dedicated to create motion blur effects which Flash lacks. Use the effect with Replicator.
- *
- * layers
- *   The Layers to use.
- * exposureTime
- *   [default] 20.8333
- *   Exposure time (in milliseconds). Defaults to 1000/48 (double the Player frame rate).
- * shutterPhase
- *   [default] -90
- *   Shutter phase in degrees.
- */
-Akari.Display.Effects.ForceMotionBlur = function( params )
-{
-  // Default values
-  if ( !params.exposureTime ) params.exposureTime = 1000.0 / 48.0;
-  var shutterOffset = params.exposureTime * ( params.shutterPhase || -90.0 ) / 180.0;
-  
-  // Create a Sprite as container for objects
-  var canvas = Akari.Display.Sprite();
-  
-  // Clone an invisible original layer for preserving alpha and blend
-  var original = params.layers.shift();
-  
-  // Add sub-layers to display tree, calculate alpha values to avoid problem
-  var subLayers = params.layers;
-  var subAlphas = [];
-  var totalAlphaYet = 0;
-  var i = 0;
-  for ( i = 0; i < subLayers.length; i++ )
-  {
-    canvas.addChild( subLayers[ i ].source );
-    
-    // As for the internal 256 thing
-    var idealTotalAlpha = Math.ceil( 256 * ( i + 1 ) / subLayers.length );
-    var subAlpha = idealTotalAlpha - totalAlphaYet;
-    subAlphas.push( ( subAlpha + 1 ) / 256 );
-    totalAlphaYet += subAlpha;
-  }
-  
-  // Create a new layer, binding alpha and blendMode with original layer
-  var layer = Akari.Display.Layer(
-  {
-    source : canvas,
-    inPoint : original.inPoint,
-    outPoint : original.outPoint,
-    properties :
-    {
-      alpha : function( time ) { return original.source.alpha; },
-      blendMode : function( time ) { return original.source.blendMode; }
-    }
-  });
-  
-  // Simulate inheritance by making a backup of update function.
-  var baseUpdate = Akari.Utilities.Factory.clone( layer.update, layer );
-  
-  // Declare new update
-  layer.update = function( time )
-  {
-    // Update original layer to get binding work
-    original.update( time );
-    baseUpdate( time );
-    
-    // Update each layer included
-    var offset = 0;
-    foreach ( subLayers, function( key, object )
-    {
-      object.update( time + params.exposureTime * offset / subLayers.length + shutterOffset );
-      
-      // Manually set alpha and blendMode in case of bindings
-      object.source.alpha = subAlphas[ offset ];
-      object.source.blendMode = "add";
-      
-      offset ++;
-    });
-  };
-  
-  return layer;
-};
-
-
-
-/* Namespace: Akari.Display.Declarative
- * Classes for describing shapes and animations.
- */
-Akari.Display.Declarative = {};
-
-/* Enum: InstructionType
- * Types of instructions.
- */
-Akari.Display.Declarative.InstructionType =
-{
-  /* beginFill
-   * Specifies a one-color fill.
-   *
-   * color
-   *   [default] 0xFFFFFF
-   *   The color to be filled.
-   * alpha
-   *   [default] 1.0
-   *   Opacity of the fill.
-   */
-  beginFill : { perform : function( graphics, data ) { graphics.beginFill( data.color || 0xFFFFFF, data.alpha || 1.0 ); } },
-  
-  /* endFill
-   * Ends the current fill.
-   */
-  endFill : { perform : function( graphics, data ) { graphics.endFill(); } },
-   
-  /* lineStyle
-   * Specifies a one-color line style.
-   *
-   * thickness
-   *   [default] null
-   *   Thickness of the line.
-   * color
-   *   [default] 0x0
-   *   The color of the stroke.
-   * alpha
-   *   [default] 1.0
-   *   Opacity of the stroke.
-   * pixelHinting
-   *   [default] false
-   *   A Boolean value that specifies whether to hint strokes to full pixels.
-   * scaleMode
-   *   [default] "normal"
-   *   One of the LineScaleModes.
-   * caps
-   *   [default] null
-   *   Specifies the type of caps at the end of lines.
-   * joints
-   *   [default] null
-   *   Specifies the type of joint appearance used at angles.
-   * miterLimit
-   *   [default] 3
-   *   A number that indicates the limit at which a miter is cut off.
-   */
-  lineStyle : { perform : function( graphics, data ) { graphics.lineStyle( data.thickness, data.color || 0x0, data.alpha || 1.0, data.pixelHinting || false, data.scaleMode || "normal", data.caps || null, data.joints || null, data.miterLimit || 3 ); } },
-  
-  /* path
-   * Represents a series of commands for drawing. Currently the only drawing instruction avaliable.
-   *
-   * commands
-   *   A Vector.<int> of commands.
-   * data
-   *   A Vector.<int> of data.
-   * winding
-   *   [default] "evenOdd"
-   *   Path winding rule.
-   */
-  path : { perform : function( graphics, data ) { graphics.drawPath( data.commands, data.data, data.winding || "evenOdd" ); } }
-};
-
-/* Class: Instruction
- * A class representing an drawing instruction.
- *
- * type
- *   One of the InstructionTypes.
- * data
- *   Parameters of the instruction.
- */
-Akari.Display.Declarative.Instruction = function( params )
-{
-  return Akari.Utilities.Factory.extend( { perform : function( graphics ) { this.type.perform( graphics, this.data ); } }, params );
-};
-
-/* Class: Frame
- * A class representing a series of instructions that make up a frame.
- *
- * instructions
- *   Array of Instructions.
- */
-Akari.Display.Declarative.Frame = function( params )
-{
-  return Akari.Utilities.Factory.extend(
-  {
-    /* Function: perform
-     * Performs all actions contained in instructions.
-     *
-     * graphics
-     *   The Graphics to draw on.
-     */
-    perform : function( graphics )
-    {
-      // Force a graphics.clear here to avoid potential use of Animation for incremental drawing. Every frame have to stand on itself to enforce seekability.
-      graphics.clear();
-      
-      for ( var i = 0; i < this.instructions.length; i ++ )
-      {
-        this.instructions[ i ].perform( graphics );
-      }
-    }
-  }, params );
-};
-
-/* Class: DeclarativeShape
- * A Shape with graphics drawn using the provided Frame.
- *
- * frame
- *   The Frame to use.
- */
-Akari.Display.Declarative.DeclarativeShape = function( frame )
-{
-  // Get an empty Shape
-  var shape = Akari.Display.Shape();
-  
-  // Perform the Frame on it
-  frame.perform( shape.graphics );
-  
-  return shape;
-};
-
-/* Class: Animation
- * A DynamicLayerSourceProvider with primitive stop motion animation support.
- *
- * frames
- *   An Array of Frames.
- * frameRate
- *   [default] 12
- *   The rate at which the animation is played.
- *   Setting a rate much too high while having a complex scene can probably cause performance problems.
- */
-Akari.Display.Declarative.Animation = function( params )
-{
-  var lastFrame = 0;
-  var frameRate = params.frameRate || 12;
-  
-  // Function for getting the current frame
-  var findCurrentIndex = function( time )
-  {
-    return Math.floor( time * frameRate / 1000 );
-  };
-  
-  // Create a canvas for drawing stuff directly
-  var canvas = Akari.Display.Shape();
-  
-  // Return a new object
-  return
-  {
-    startTime : 0,
-    duration : params.frames.length * 1000 / frameRate,
-    canvas : canvas,
-    
-    /* Function: update
-     * Updates the canvas to fit the timeline.
-     *
-     * time
-     *   A Number, the current time (in milliseconds) on the Animation's own timeline.
-     */
-    update : function( time )
-    {
-      // Check if an update is needed
-      var currentFrame = findCurrentIndex( time );
-      if ( currentFrame === lastFrame ) return;
-      
-      // Update the graphics
-      params.frames[ currentFrame ].perform( canvas.graphics );
-      
-      // Set the lastFrame property
-      lastFrame = currentFrame;
-    },
-    
-    /* Function: clone
-     * Custom clone function for canvas and such.
-     */
-    clone : function()
-    {
-      return Akari.Display.Declarative.Animation( Akari.Utilities.Factory.clone( params ) );
-    }
-  };
-};
-
-
-
-
 /* Namespace: Akari.Display.Text
  * Classes for displaying vector text.
  */
@@ -2030,7 +1781,7 @@ Akari.Display.Text.Animator = function( params )
  * A type of layer specialized to display basic dynamic vector text (huge sizes over 200px or exotic fonts).
  *
  * dictionary
- *   An Object containing Frames for possible glyphs.
+ *   An Object containing functions with signature function( graphics ){ } for possible glyphs.
  *   Glyphs should be provided by user, be anchored at top-left and be of 200px in size.
  * textProperties
  *   [default] { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "" }
@@ -2106,7 +1857,9 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
         for ( var numChar = 0; numChar < lines[ numLine ].length; numChar ++ )
         {
           // Create glyphs and put them in current line. Position does not matter since it will be corrected afterwards.
-          lineSprite.addChild( Akari.Display.Declarative.DeclarativeShape( params.dictionary[ lines[ numLine ].charAt( numChar ) ] ) );
+          var glyphShape = Akari.Display.Shape();
+          params.dictionary[ lines[ numLine ].charAt( numChar ) ]( glyphShape.graphics );
+          lineSprite.addChild( glyphShape );
         }
         
         // Add new Sprite to linesContainer
@@ -2203,6 +1956,122 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
   
   // Update Layer for a first time to prevent flashing
   layer.update( params.inPoint );
+  
+  return layer;
+};
+
+
+
+/* Namespace: Akari.Display.Effects
+ * This sort of classes are effects that wrap around layers. Not to be confused with filters which should be set with Binders.
+ */
+
+Akari.Display.Effects = {};
+
+/* Class: TrackMatte
+ * Use another layer as a mask.
+ *
+ * layer
+ *   The Layer to be masked.
+ * mask
+ *   The mask Layer.
+ */
+Akari.Display.Effects.TrackMatte = function( params )
+{
+  // Add mask layer to display list and apply mask
+  params.layer.source.addChild( params.mask.source );
+  params.layer.source.mask = params.mask.source;
+  
+  // Simulate inheritance by making a backup of update function.
+  var baseUpdate = Akari.Utilities.Factory.clone( params.layer.update, params.layer );
+  
+  // Declare new update
+  params.layer.update = function( time )
+  {
+    // Update original layer and mask layer
+    baseUpdate( time );
+    params.mask.update( time );
+  };
+  
+  return params.layer;
+};
+
+/* Class: ForceMotionBlur
+ * An effect dedicated to create motion blur effects which Flash lacks. Use the effect with Replicator.
+ *
+ * layers
+ *   The Layers to use.
+ * exposureTime
+ *   [default] 20.8333
+ *   Exposure time (in milliseconds). Defaults to 1000/48 (double the Player frame rate).
+ * shutterPhase
+ *   [default] -90
+ *   Shutter phase in degrees.
+ */
+Akari.Display.Effects.ForceMotionBlur = function( params )
+{
+  // Default values
+  if ( !params.exposureTime ) params.exposureTime = 1000.0 / 48.0;
+  var shutterOffset = params.exposureTime * ( params.shutterPhase || -90.0 ) / 180.0;
+  
+  // Create a Sprite as container for objects
+  var canvas = Akari.Display.Sprite();
+  
+  // Clone an invisible original layer for preserving alpha and blend
+  var original = params.layers.shift();
+  
+  // Add sub-layers to display tree, calculate alpha values to avoid problem
+  var subLayers = params.layers;
+  var subAlphas = [];
+  var totalAlphaYet = 0;
+  var i = 0;
+  for ( i = 0; i < subLayers.length; i++ )
+  {
+    canvas.addChild( subLayers[ i ].source );
+    
+    // As for the internal 256 thing
+    var idealTotalAlpha = Math.ceil( 256 * ( i + 1 ) / subLayers.length );
+    var subAlpha = idealTotalAlpha - totalAlphaYet;
+    subAlphas.push( ( subAlpha + 1 ) / 256 );
+    totalAlphaYet += subAlpha;
+  }
+  
+  // Create a new layer, binding alpha and blendMode with original layer
+  var layer = Akari.Display.Layer(
+  {
+    source : canvas,
+    inPoint : original.inPoint,
+    outPoint : original.outPoint,
+    properties :
+    {
+      alpha : function( time ) { return original.source.alpha; },
+      blendMode : function( time ) { return original.source.blendMode; }
+    }
+  });
+  
+  // Simulate inheritance by making a backup of update function.
+  var baseUpdate = Akari.Utilities.Factory.clone( layer.update, layer );
+  
+  // Declare new update
+  layer.update = function( time )
+  {
+    // Update original layer to get binding work
+    original.update( time );
+    baseUpdate( time );
+    
+    // Update each layer included
+    var offset = 0;
+    foreach ( subLayers, function( key, object )
+    {
+      object.update( time + params.exposureTime * offset / subLayers.length + shutterOffset );
+      
+      // Manually set alpha and blendMode in case of bindings
+      object.source.alpha = subAlphas[ offset ];
+      object.source.blendMode = "add";
+      
+      offset ++;
+    });
+  };
   
   return layer;
 };

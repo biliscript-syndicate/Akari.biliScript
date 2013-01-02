@@ -1,7 +1,6 @@
 // {{Depend : Akari}} //
 // {{Depend : Akari.Utilities}} //
 // {{Depend : Akari.Display}} //
-// {{Depend : Akari.Display.Declarative}} //
 
 /* Namespace: Akari.Display.Text
  * Classes for displaying vector text.
@@ -142,7 +141,7 @@ Akari.Display.Text.Animator = function( params )
  * A type of layer specialized to display basic dynamic vector text (huge sizes over 200px or exotic fonts).
  *
  * dictionary
- *   An Object containing Frames for possible glyphs.
+ *   An Object containing functions with signature function( graphics ){ } for possible glyphs.
  *   Glyphs should be provided by user, be anchored at top-left and be of 200px in size.
  * textProperties
  *   [default] { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "" }
@@ -218,7 +217,9 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
         for ( var numChar = 0; numChar < lines[ numLine ].length; numChar ++ )
         {
           // Create glyphs and put them in current line. Position does not matter since it will be corrected afterwards.
-          lineSprite.addChild( Akari.Display.Declarative.DeclarativeShape( params.dictionary[ lines[ numLine ].charAt( numChar ) ] ) );
+          var glyphShape = Akari.Display.Shape();
+          params.dictionary[ lines[ numLine ].charAt( numChar ) ]( glyphShape.graphics );
+          lineSprite.addChild( glyphShape );
         }
         
         // Add new Sprite to linesContainer
