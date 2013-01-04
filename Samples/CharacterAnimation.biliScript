@@ -1,0 +1,13 @@
+/* Sample: CharacterAnimation
+ * Sample demonstrating usage of RangeSelector and Animator class.
+ */
+
+var Akari = Global._get( "__akari" );
+
+Akari.Utilities.Factory.extend( this, Akari.Utilities );
+Factory.extend( this, Akari.Display );
+Factory.extend( this, Akari.Display.Text );
+
+var mainComp = MainComposition({});
+
+Akari.execute( mainComp );

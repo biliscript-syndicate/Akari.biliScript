@@ -2,7 +2,6 @@
  * Demonstrates usage of Akari.Display.Animation
  *
  * The sample generates a stop frame animation about, well, randomly placed line segments flying around on the screen.
- * Akari.Display.Declarative was written in an attempt to provide support for both baked animation and ones generated at runtime.
  */
 
 // Fetch a global reference for Akari
