@@ -1647,8 +1647,6 @@ Akari.Animation.WiggleKeyframes = function( params )
   }
 };
 
-
-
 /* Namespace: Akari.Display.Text
  * Classes for displaying vector text.
  */
@@ -2137,6 +2135,5 @@ Akari.Display.Effects.ForceMotionBlur = function( params )
   
   return layer;
 };
-
 
 Global._set( "__akari", Akari );
