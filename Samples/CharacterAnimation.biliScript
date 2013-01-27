@@ -8,6 +8,56 @@ Akari.Utilities.Factory.extend( this, Akari.Utilities );
 Factory.extend( this, Akari.Display );
 Factory.extend( this, Akari.Display.Text );
 
-var mainComp = MainComposition({});
+// A sample dictionary with a square and a circle.
+var dictionary = {
+  "●" : function( graphics )
+  {
+    graphics.beginFill( 0xFFFFFF, 1 );
+    graphics.drawCircle( 100, 100, 100 );
+    graphics.endFill();
+  },
+  "■" : function( graphics )
+  {
+    graphics.beginFill( 0xFFFFFF, 1 );
+    graphics.drawRect( 0, 0, 200, 200 );
+    graphics.endFill();
+  }
+};
+
+var mainComp = MainComposition(
+{
+  width : 1280,
+  height : 720,
+
+  layers :
+  [
+    DynamicVectorTextLayer(
+    {
+      dictionary : dictionary,
+      textProperties : { horizontalAlign : "center", verticalAlign : "center", fontSize : 50, text : "●●■■●●■■●●" },
+
+      inPoint : 0,
+      outPoint : 60000,
+
+      properties : 
+      {
+        x : 640,
+        y : 360
+      },
+
+      animators :
+      [
+        Animator(
+        {
+          selector : RangeSelector({ properties : { start : 0, end : 0.5 } }),
+          bindings :
+          {
+            y : -100
+          }
+        })
+      ]
+    })
+  ]
+});
 
 Akari.execute( mainComp );

@@ -71,7 +71,7 @@ Akari.Utilities.Factory =
       // Iterate through the Object running this clone function
       var newObject = {};
       var countProperties = 0;
-      
+
       foreach ( object, function( key, object )
       {
         countProperties ++;
@@ -82,7 +82,7 @@ Akari.Utilities.Factory =
         }
         else
         {
-          var adg = Factory.clone( object );
+          var adg = Akari.Utilities.Factory.clone( object );
           newObject[ key ] = adg;
         }
       });
@@ -99,7 +99,7 @@ Akari.Utilities.Factory =
           // Clone all its children
           for ( var i = 0; i < object.numChildren; i ++ )
           {
-            newObject.addChild( Factory.clone( object.getChildAt( i ) ) );
+            newObject.addChild( Akari.Utilities.Factory.clone( object.getChildAt( i ) ) );
           }
         }
         
@@ -203,6 +203,10 @@ Akari.Utilities.Timer = function()
  *   An Object to bind.
  * properties
  *   An Object, containing values or Bindings for each property.
+ * overridePathCheck
+ *   [default] false
+ *   Specifying this will override path checking, so that new properties can be added to the object.
+ *   It is impossible to add new properties on AS3 objects (Error #1056), hence the protective mechanism. Override only if the feature is needed.
  */
 Akari.Utilities.Binder = function()
 {
@@ -212,6 +216,8 @@ Akari.Utilities.Binder = function()
     
     var pathCheck = function( object, name )
     {
+      if ( params.overridePathCheck ) return true;
+      
       var dotIndex = name.indexOf(".");
       if ( dotIndex < 0 )
       {
