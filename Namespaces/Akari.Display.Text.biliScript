@@ -7,18 +7,64 @@
  */
 Akari.Display.Text = {};
 
+/* Enum: RangeShape
+ * Shaping functions for RangeSelector.
+ */
+Akari.Display.Text.RangeShape =
+{
+  square : function( proportion )
+  {
+    if ( proportion < this.start + this.offset ) return 0;
+    if ( proportion > this.end + this.offset ) return 0;
+
+    return 1;
+  },
+
+  triangle : function( proportion )
+  {
+    if ( proportion < this.start + this.offset ) return 0;
+    if ( proportion > this.end + this.offset ) return 0;
+
+    if ( proportion < this.offset + ( this.start + this.end ) / 2 )
+    {
+      return ( proportion - this.offset - this.start ) * 2 / ( this.end - this.start );
+    }
+
+    return ( this.end + this.offset - proportion ) * 2 / ( this.end - this.start );
+  },
+
+  rampUp : function( proportion )
+  {
+    if ( proportion < this.start + this.offset ) return 0;
+    if ( proportion > this.end + this.offset ) return 1;
+
+    return ( proportion - this.offset - this.start ) / ( this.end - this.start );
+  },
+
+  rampDown : function( proportion )
+  {
+    if ( proportion < this.start + this.offset ) return 1;
+    if ( proportion > this.end + this.offset ) return 0;
+
+    return ( this.end + this.offset - proportion ) / ( this.end - this.start );
+  }
+};
+
 /* Class: RangeSelector
  * A Selector that selects characters by their place in the string.
  *
  * basis
  *   [default] "characters"
  *   Specifies the basis of the selection. Possible values: "characters", "lines".
+ * shapingFunc
+ *   [default] RangeShape.square
+ *   A function that maps proportion to 0 - 1 effect factor values, deciding the range's shape, hence the name.
  * properties
  *   [default] {
  *               start : 0,
  *               end : 1,
  *               offset : 0,
- *               shapingFunc : function( proportion ) { if ( proportion < this.start + this.offset ) return 0; if ( proportion > this.end + this.offset ) return 0; return 1; }
+ *               shapingFunc : RangeShape.square
  *             }
  *   Bindings for selector properties, units are proportion. shapingFunc converts proportion to effectFactor used by blendingFunc.
  */
@@ -29,10 +75,11 @@ Akari.Display.Text.RangeSelector = function( params )
   {
     start : 0,
     end : 1,
-    offset : 0,
-    shapingFunc : function( proportion ) { if ( proportion < this.start + this.offset ) return 0; if ( proportion > this.end + this.offset ) return 0; return 1; }
+    offset : 0
   };
   var propsBinder = Akari.Utilities.Binder({ object: props, properties : params.properties });
+
+  var shapingFunc = params.shapingFunc || Akari.Display.Text.RangeShape.square;
   
   // See if we need to operate on characters
   if ( !params.basis || params.basis === "characters" )
@@ -63,7 +110,7 @@ Akari.Display.Text.RangeSelector = function( params )
           for ( var charIndex = 0; charIndex < line.numChildren; charIndex ++ )
           {
             // Call the callback on it
-            callback( line.getChildAt( charIndex ), props.shapingFunc( ( accumIndex + charIndex ) / length ) );
+            callback( line.getChildAt( charIndex ), shapingFunc.apply( props, [ ( accumIndex + charIndex ) / length ] ) );
           }
           
           accumIndex += line.numChildren;
@@ -86,7 +133,7 @@ Akari.Display.Text.RangeSelector = function( params )
           var line = linesContainer.getChildAt( lineIndex );
 
           // Call the callback on it
-          callback( line, props.shapingFunc( lineIndex / linesContainer.numChildren ) );
+          callback( line, shapingFunc.apply( props, [ lineIndex / linesContainer.numChildren ] ) );
         }
       }
     };

@@ -1,5 +1,5 @@
 /* Sample: CharacterAnimation
- * Sample demonstrating usage of RangeSelector and Animator class.
+ * Sample demonstrating usage of RangeSelector and Animator class. A really simple per-character 3D test scene.
  */
 
 var Akari = Global._get( "__akari" );
@@ -7,6 +7,7 @@ var Akari = Global._get( "__akari" );
 Akari.Utilities.Factory.extend( this, Akari.Utilities );
 Factory.extend( this, Akari.Display );
 Factory.extend( this, Akari.Display.Text );
+Factory.extend( this, Akari.Animation );
 
 // A sample dictionary with a square and a circle.
 var dictionary = {
@@ -49,10 +50,34 @@ var mainComp = MainComposition(
       [
         Animator(
         {
-          selector : RangeSelector({ properties : { start : 0, end : 0.5 } }),
+          selector : RangeSelector(
+          {
+            shapingFunc : RangeShape.triangle,
+            properties :
+            {
+              start : 0,
+              end : 4,
+
+              // Playing with offset to have the triangle "pass through" the string.
+              offset : KeyframesBind(
+              {
+                keyframes :
+                [
+                  Keyframe({ time : 0, value : 1 }),
+                  Keyframe({ time : 60000, value : -4 })
+                ]
+              })
+            }
+          }),
           bindings :
           {
-            y : -100
+            x : 200,
+            y : -200,
+            z : 500,
+
+            rotationX : 1440,
+            rotationY : -720,
+            rotationZ : 360
           }
         })
       ]
