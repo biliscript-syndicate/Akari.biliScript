@@ -70,7 +70,6 @@ Akari.Display.Text.RangeShape =
  */
 Akari.Display.Text.RangeSelector = function( params )
 {
-  // Initiate an empty Object for bindings.
   var props =
   {
     start : 0,
@@ -84,12 +83,10 @@ Akari.Display.Text.RangeSelector = function( params )
   // See if we need to operate on characters
   if ( !params.basis || params.basis === "characters" )
   {
-    // Return the object
     return
     {
       select : function( time, linesContainer, callback )
       {
-        // Update the binder
         propsBinder.update( time );
         
         // Keep track of current index to get the proportion
@@ -109,7 +106,6 @@ Akari.Display.Text.RangeSelector = function( params )
           
           for ( var charIndex = 0; charIndex < line.numChildren; charIndex ++ )
           {
-            // Call the callback on it
             callback( line.getChildAt( charIndex ), shapingFunc.apply( props, [ ( accumIndex + charIndex ) / length ] ) );
           }
           
@@ -124,7 +120,6 @@ Akari.Display.Text.RangeSelector = function( params )
     {
       select : function( time, linesContainer, callback )
       {
-        // Update the binder
         propsBinder.update( time );
         
         // Iterate through the linesContainer operating
@@ -132,7 +127,6 @@ Akari.Display.Text.RangeSelector = function( params )
         {
           var line = linesContainer.getChildAt( lineIndex );
 
-          // Call the callback on it
           callback( line, shapingFunc.apply( props, [ lineIndex / linesContainer.numChildren ] ) );
         }
       }
@@ -177,10 +171,8 @@ Akari.Display.Text.Animator = function( params )
   {
     apply : function( time, linesContainer )
     {
-      // Update the binder
       propsBinder.update( time );
 
-      // Call to the selector
       params.selector.select( time, linesContainer, selectCallback );
     }
   };
@@ -220,10 +212,8 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
   var textProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "" };
   var textPropertiesBinder = Akari.Utilities.Binder({ object : textProperties, properties : params.textProperties || {} });
   
-  // Animators array default value
   var animators = params.animators || [];
   
-  // Create a Layer to contain text.
   var layer = Akari.Display.Layer(
   {
     source : alignmentContainer,
@@ -235,7 +225,6 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
   // Simulate inheritance by making a backup of update function.
   var baseUpdate = Akari.Utilities.Factory.clone( layer.update, layer );
   
-  // Declare new update
   layer.update = function( time )
   {
     baseUpdate( time );
@@ -252,7 +241,6 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
     // Reset Glyphs if needed (most expensive)
     if ( needGlyphReset )
     {
-      // Remove all children from linesContainer
       while ( linesContainer.numChildren > 0 ) linesContainer.removeChildAt( 0 );
       
       // Split text into lines to process
@@ -271,7 +259,6 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
           lineSprite.addChild( glyphShape );
         }
         
-        // Add new Sprite to linesContainer
         linesContainer.addChild( lineSprite );
       }
     }
@@ -294,19 +281,16 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
           mx.identity();
           glyph.transform.matrix = mx;
           
-          // Set letter spacing and size
           glyph.x = accumulativeX;
           glyph.scaleX = glyph.scaleY = textProperties.fontSize / 200.0;
           
           if ( textProperties.fixedWidth )
           {
-            // Text is fixed width, transform the width
             var nwFactor = Math.round( glyph.width / textProperties.fontSize );
             accumulativeX += textProperties.fontSize * ( nwFactor / 2 + 0.5 ) + textProperties.letterSpacing;
           }
           else
           {
-            // Always use actual width
             accumulativeX += glyph.width + textProperties.letterSpacing;
           }
         }

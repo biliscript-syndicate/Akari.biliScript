@@ -277,7 +277,6 @@ Akari.Animation.KeyframesBindMode =
  */
 Akari.Animation.KeyframesBind = function( params )
 {
-  // Store information about range
   var firstKeyframeTime = params.keyframes[ 0 ].time;
   var lastKeyframeTime = params.keyframes[ params.keyframes.length - 1 ].time;
   var duration = lastKeyframeTime - firstKeyframeTime;
@@ -298,7 +297,6 @@ Akari.Animation.KeyframesBind = function( params )
       // Modulate by double the duration
       var ppTime = ( time - firstKeyframeTime ) % ( duration * 2 );
       
-      // Check phase
       if ( ppTime > duration )
       {
         return lastKeyframeTime - ppTime + duration;
@@ -313,7 +311,6 @@ Akari.Animation.KeyframesBind = function( params )
   // Function for finding the current keyframe index
   var findCurrentIndex = function( time )
   {
-    // Iterate through keyframes to find
     var currentIndex = 0;
     while( params.keyframes[ currentIndex + 1 ] && params.keyframes[ currentIndex + 1 ].time < time )
       currentIndex ++;
@@ -324,21 +321,17 @@ Akari.Animation.KeyframesBind = function( params )
   // Return the binding function
   return function( time )
   {
-    // Apply behavior if exists
     var newTime = applyRangeBehavior ? applyRangeBehavior( time ) : time;
     
-    // Find the current keyframe
     var currentIndex = findCurrentIndex( newTime );
     var currentKey = params.keyframes[ currentIndex ];
     var nextKey = params.keyframes[ currentIndex + 1 ];
     
-    // Whether there is a next keyframe to interpolate
+    // Whether there is a next keyframe to interpolate to
     if ( nextKey )
     {
-      // Calculate time factor
       var tFactor = ( newTime - currentKey.time ) / ( nextKey.time - currentKey.time );
       
-      // Check current keyframe's mode
       if ( currentKey.mode === Akari.Animation.KeyframeMode.affectNext )
       {
         return currentKey.interpolation( tFactor, currentKey.value, nextKey.value );
@@ -349,21 +342,18 @@ Akari.Animation.KeyframesBind = function( params )
       }
       else if ( currentKey.mode === Akari.Animation.KeyframeMode.weightBlend )
       {
-        // First calculate using two functions
         var value1 = currentKey.interpolation( tFactor, currentKey.value, nextKey.value );
         var value2 = nextKey.interpolation( tFactor, currentKey.value, nextKey.value );
         
-        // Calculate weights
         var weight1 = currentKey.weight * ( 1 - tFactor );
         var weight2 = nextKey.weight * tFactor;
         
-        // Return a weighted average
         return ( value1 * weight1 + value2 * weight2 ) / ( weight1 + weight2 );
       }
     }
     else
     {
-      // When there is not a next frame for some reason, just return the current value
+      // When there is not a next keyframe for some reason, just return the current value
       return currentKey.value;
     }
   };
@@ -444,13 +434,11 @@ Akari.Animation.WiggleKeyframes = function( params )
   {
     if ( origin.hasOwnProperty("length") )
     {
-      // Origin is an Array, use vector stuff
       var randVector = vectorRandom( origin.length );
       
       // Scale vector to fit amount constraint
       var scaledVector = vectorScale( randVector, params.amount / vectorLength( randVector ) );
       
-      // Return result
       return vectorAdd( origin, scaledVector );
     }
     else
@@ -460,13 +448,11 @@ Akari.Animation.WiggleKeyframes = function( params )
     }
   };
   
-  // Loop randomizing
   if ( params.returnCenter )
   {
     var keyframes = [];
     for( var c = 0; c < params.numSteps; c ++ )
     {
-      // Create keyframe
       keyframes.push( Akari.Animation.Keyframe({ time : params.startTime + params.stepTime * c - 1, value : params.origin, interpolation : Akari.Animation.Interpolation.hold }) );
       keyframes.push( Akari.Animation.Keyframe({ time : params.startTime + params.stepTime * c, value : randomize( params.origin ), interpolation : params.interpolation || Akari.Animation.Interpolation.cubic.easeInOut }) );
     }
@@ -474,7 +460,6 @@ Akari.Animation.WiggleKeyframes = function( params )
     // Repeat first for consistency
     keyframes.push( Akari.Animation.Keyframe({ time : params.startTime + params.stepTime * ( ++ c ) - 1, value : params.origin, interpolation : Akari.Animation.Interpolation.hold }) );
     
-    // Return keyframes
     return keyframes;
   }
   else
@@ -482,14 +467,12 @@ Akari.Animation.WiggleKeyframes = function( params )
     var keyframes = [];
     for( var c = 0; c < params.numSteps; c ++ )
     {
-      // Create keyframe
       keyframes.push( Akari.Animation.Keyframe({ time : params.startTime + params.stepTime * c, value : randomize( params.origin ), interpolation : params.interpolation || Akari.Animation.Interpolation.cubic.easeInOut }) );
     }
     
     // Repeat first for consistency
     keyframes.push( Akari.Animation.Keyframe({ time : params.startTime + params.stepTime * ( ++ c ), value : keyframes[ 0 ].value, interpolation : params.interpolation || Akari.Animation.Interpolation.cubic.easeInOut }) );
     
-    // Return keyframes
     return keyframes;
   }
 };
