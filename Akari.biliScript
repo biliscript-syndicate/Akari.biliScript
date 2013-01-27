@@ -1,4 +1,3 @@
-
 /* Akari.biliScript - v20130128
  * Copyright (C) 2013 EPM
  *
@@ -15,37 +14,36 @@
  * For a copy of the GNU General Public License,
  * see <http://www.gnu.org/licenses/>.
  *
- * Documenting convention:
- *
- * For those functions that accept only one Object "params", only the content of the Object is documented.
+ * 注释提示：
+ * 对于只接受params作为参数的类，注释直接写里面的内容。
  */
 
 
-/* Namespace: Akari
- * Contains several namespace level functions.
+/* 命名空间：Akari
+ * 包括几个命名空间等级的函数。
  */
 Akari = {};
 
-/* Function: execute
- * Sets off the helper script running.
+/* 函数：execute
+ * 使辅助框架开始执行。
  *
  * mainComp
- *   The MainComposition of the Comment Art to present.
+ *   要展现的弹幕艺术的MainComposition。
  */
 Akari.execute = function( mainComp )
 {
-  // Create a global reference so that the main composition could be accessed in Expressions
+  // 创建一个全局的引用，这样表达式就可以访问到主合成了。
   Global._set( "__mainComp_akari", mainComp );
   
-  // Present the main composition
+  // 展现主合成
   mainComp.present();
   
-  // Set global value to indicate usage
+  // 设置全局变量，指明目前正在执行
   Global._set( "__isExecuted_akari", true );
 };
 
-/* Function: stop
- * Stops the helper for debug use
+/* 函数: stop
+ * 停止辅助框架的执行，调试使用。
  */
 Akari.stop = function()
 {
@@ -54,16 +52,16 @@ Akari.stop = function()
   Global._set( "__isExecuted_akari", null );
 };
 
-/* Function: isExecuted
- * See if the helper is already running
+/* 函数: isExecuted
+ * 判断辅助框架是否已经在执行。
  */
 Akari.isExecuted = function()
 {
   return ( Global._get("__isExecuted_akari") === true );
 };
 
-/* Property: root
- * A safe replacement for $.root in case it get banned
+/* 属性: root
+ * 万一$.root被封了，这是一个安全的替代品。
  */
 Akari.root = function()
 {
@@ -89,7 +87,7 @@ Akari.root = function()
       ]
     });
     
-    // remove 3D to make it clear by default
+    // 去除3D，这样显示就清楚了。
     sprite.transform.matrix3D = null;
     
     return sprite;
@@ -97,22 +95,22 @@ Akari.root = function()
 }();
 
 
-/* Namespace: Akari.Utilities
- * Provide utilities not directly related to presenting content.
+/* 命名空间: Akari.Utilities
+ * 提供与展示内容并不直接相关的一些工具类。
  */
 Akari.Utilities = {};
 
-/* Static Class: Factory
- * Provides functions for creating and manipulating objects.
- * Legacy name used because this was once an actual factory. (See : 2012/11/21 Update)
+/* 静态类: Factory
+ * 提供创建和操纵对象的方法。
+ * 因为历史原因使用此命名（参见：2012/11/21更新）
  */
 Akari.Utilities.Factory =
 {
-  /* Function: collapse
-   * Concats all arrays given into one.
+  /* 函数: collapse
+   * 将给出的所有数组连接为一个。
    *
    * arrays
-   *   An Array of Arrays.
+   *   一个数组的数组。
    */
   collapse : function( arrays )
   {
@@ -126,13 +124,13 @@ Akari.Utilities.Factory =
     return result;
   },
   
-  /* Function: extend
-   * Copies all properties from the source to the destination object.
+  /* 函数: extend
+   * 将所有属性从source复制到destination对象。
    *
    * destination
-   *   Destination object.
+   *   目标对象。
    * source
-   *   Source object.
+   *   源对象。
    */
   extend : function( destination, source )
   {
@@ -145,15 +143,15 @@ Akari.Utilities.Factory =
     return destination;
   },
   
-  /* Function: clone
-   * Clones an Object.
+  /* 函数: clone
+   * 复制一个对象。
    *
    * object
-   *   The Object to clone.
+   *   要复制的对象。
    */
   clone : function( object, scope )
   {
-    // Check if the object contains a custom clone function for cloning private variables.
+    // 检测是否已经定义了自己的clone函数
     if ( object.hasOwnProperty( "clone" ) )
     {
       return object.clone();
@@ -164,7 +162,7 @@ Akari.Utilities.Factory =
     }
     else
     {
-      // Iterate through the Object running this clone function
+      // 迭代运行这个复制函数
       var newObject = {};
       var countProperties = 0;
 
@@ -183,13 +181,13 @@ Akari.Utilities.Factory =
         }
       });
       
-      // Check if newObject is empty
+      // 检查newObject是否为空
       if ( countProperties === 0 )
       {
-        // Probably AS3 or an empty shit, make a clone first
+        // 如为空，则可能是AS3对象或者根本就是空的，执行内建的clone函数
         newObject = clone( object );
         
-        // Check if it's a DOC
+        // 检查是否是DisplayObjectContainer
         if ( object.hasOwnProperty( "numChildren" ) )
         {
           for ( var i = 0; i < object.numChildren; i ++ )
@@ -198,10 +196,10 @@ Akari.Utilities.Factory =
           }
         }
         
-        // Check if it's a Shape
+        // 检查是否是Shape
         if ( object.hasOwnProperty( "graphics" ) )
         {
-          // Clone the Graphic's content
+          // 复制graphics的内容
           newObject.graphics.copyFrom( object.graphics );
         }
       }
@@ -210,15 +208,15 @@ Akari.Utilities.Factory =
     }
   },
   
-  /* Function: replicate
-   * Returns an Array of Objects created according to given params. 
+  /* 函数: replicate
+   * 返回一组根据给出的参数创建的对象。
    *
    * constructor
-   *   Constructor of the Class to replicate.
+   *   要复制的类的构造器。
    * count
-   *   Count of result Objects.
+   *   要复制的个数。
    * paramsFunction
-   *   A Function accepting index as parameter, returning an Array of parameters.
+   *   一个返回参数数组的函数。
    */
   replicate : function( constructor, count, paramsFunction )
   {
@@ -238,8 +236,8 @@ Akari.Utilities.Factory =
   }
 };
 
-/* Static Class: Timer
- * Improves timing precision over Player.time by sampling time usage for each frame. For retaining both smoothness and seekability.
+/* 静态类: Timer
+ * 通过采样每帧的时间使用提供比Player.time更加精准的时间，目的是在保证可跳转性的同时提高流畅度。
  */
 Akari.Utilities.Timer = function()
 {
@@ -251,14 +249,14 @@ Akari.Utilities.Timer = function()
   {
     time : 0,
     
-    /* Function: update
-     * Counts a frame and updates time.
+    /* 函数: update
+     * 计入一帧并更新时间。
      */
     update : function()
     {
       if ( Player.time != lastTime )
       {
-        // Make drastic change proof
+        // 防止时间的巨大变化
         if ( Math.abs( Player.time - lastTime ) < 1000 )
         {
           deltaTime = ( Player.time - lastTime ) / sampleCount;
@@ -269,7 +267,7 @@ Akari.Utilities.Timer = function()
         }
         else
         {
-          // Reset Timer because of a possible seek (or just so laggy that Timer is not effective)
+          // 因为可能的跳转重置Timer（或者有可能是执行太慢以至于Timer失去意义）
           deltaTime = 0;
           lastTime = Player.time;
           sampleCount = 1;
@@ -286,17 +284,17 @@ Akari.Utilities.Timer = function()
   };
 }();
 
-/* Class: Binder
- * Provides functions for binding properties. Mainly used in layers.
+/* 类: Binder
+ * 提供绑定属性值得功能，主要在Layer中使用。
  *
  * object
- *   An Object to bind.
+ *   目标对象。
  * properties
- *   An Object, containing values or Bindings for each property.
+ *   含有绑定信息的对象。
  * overridePathCheck
- *   [default] false
- *   Specifying this will override path checking, so that new properties can be added to the object.
- *   It is impossible to add new properties on AS3 objects (Error #1056), hence the protective mechanism. Override only if the feature is needed.
+ *   [默认] false
+ *   设定这个值将会取消路径检查，这样就可以向目标对象添加新属性。
+ *   因为对AS3对象无法添加属性(Error #1056)，所以加入了路径检查的保护机制。请仅在需要功能时打开。
  */
 Akari.Utilities.Binder = function()
 {
@@ -334,13 +332,13 @@ Akari.Utilities.Binder = function()
     
     var setBinding = function( name, value )
     {
-      // Check if path exists
+      // 检查路径是否存在
       if ( !pathCheck( params.object, name ) )
       {
         return;
       }
       
-      // Check if binding every frame is needed
+      // 检查有没有必要每帧设定值
       if ( typeof( value ) === "function" )
       {
         needBinding[ name ] = value;
@@ -353,10 +351,10 @@ Akari.Utilities.Binder = function()
     
     var setBindings = function( key, obj )
     {
-      // Check if objs are Links or Sequences
+      // 查出可能的Link或者Sequence
       if ( obj.hasOwnProperty( "linkFunc" ) )
       {
-        // Check if a function is present
+        // 是否有使用函数
         if ( obj.linkFunc )
         {
           if ( typeof( params.properties[ obj.name.toString() ] ) === "function" )
@@ -382,7 +380,7 @@ Akari.Utilities.Binder = function()
       }
       else if ( obj.hasOwnProperty( "sequence" ) )
       {
-        // Set sequence first
+        // 先设定顺序
         for ( var i = 0; i < obj.sequence.length; i ++ )
         {
           setBindings( obj.sequence[ i ][ 0 ], obj.sequence[ i ][ 1 ] );
@@ -401,14 +399,14 @@ Akari.Utilities.Binder = function()
     return
     {
       
-      /* Function: update
-       * Updates the object to fit the timeline.
+      /* 函数: update
+       * 更新目标对象以与时间轴相合。
        *
        * time
-       *   A Number, the current time (in milliseconds) on the Composition's timeline.
+       *   Number，时间轴上的当前时间（毫秒）。
        * scope
-       *   [default] object
-       *   An Object, scope under which the binded functions are called.
+       *   [默认] object
+       *   执行函数的上下文对象。
        */
       update : function( time, scope )
       {
@@ -420,14 +418,14 @@ Akari.Utilities.Binder = function()
     };
   };
 
-  /* Class: Binder.Link
-   * Represents a link between different properties.
+  /* 类: Binder.Link
+   * 表示不同属性间的一个链接。
    *
    * name
-   *   The name of the property to link.
+   *   要连接的属性的名字。
    * linkFunc
-   *   [default] null
-   *   A Function accepting input & time from binder or null indicating copy.
+   *   [默认] null
+   *   接受链接属性的值和时间的函数，若null则表示复制链接属性的值。
    */
   binderClass.Link = function( params )
   {
@@ -438,13 +436,13 @@ Akari.Utilities.Binder = function()
     };
   };
 
-  /* Class: Binder.Sequence
-   * Represents a sequential bind, for properties that depend on other properties that need to be set earlier.
+  /* 类: Binder.Sequence
+   * 表示一个顺序化得设定。在需要前置设置的属性上使用。
    *
    * sequence
-   *   An Array containing name value pairs.
+   *   一个含有名/值对的数组。
    * value
-   *   The value of the property to set after executing sequence.
+   *   在顺序设定完后需要设定的属性。
    */
   binderClass.Sequence = function( params )
   {
