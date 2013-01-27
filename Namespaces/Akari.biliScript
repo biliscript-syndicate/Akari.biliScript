@@ -1,4 +1,4 @@
-﻿
+
 /* 命名空间：Akari
  * 包括几个命名空间等级的函数。
  */
@@ -32,8 +32,13 @@ Akari.stop = function()
   Global._set( "__isExecuted_akari", null );
 };
 
+<<<<<<< HEAD
 /* 函数: isExecuted
  * 判断辅助框架是否已经在执行。
+=======
+/* Function: isExecuted
+ * See if the helper is already running
+>>>>>>> origin/master
  */
 Akari.isExecuted = function()
 {

@@ -25,10 +25,8 @@ Akari.Display.Effects.TrackMatte = function( params )
   // Simulate inheritance by making a backup of update function.
   var baseUpdate = Akari.Utilities.Factory.clone( params.layer.update, params.layer );
   
-  // Declare new update
   params.layer.update = function( time )
   {
-    // Update original layer and mask layer
     baseUpdate( time );
     params.mask.update( time );
   };
@@ -50,17 +48,15 @@ Akari.Display.Effects.TrackMatte = function( params )
  */
 Akari.Display.Effects.ForceMotionBlur = function( params )
 {
-  // Default values
   if ( !params.exposureTime ) params.exposureTime = 1000.0 / 48.0;
   var shutterOffset = params.exposureTime * ( params.shutterPhase || -90.0 ) / 180.0;
   
-  // Create a Sprite as container for objects
   var canvas = Akari.Display.Sprite();
   
-  // Clone an invisible original layer for preserving alpha and blend
+  // An invisible layer for preserving alpha and blend
   var original = params.layers.shift();
   
-  // Add sub-layers to display tree, calculate alpha values to avoid problem
+  // Add sub-layers to display tree, calculate alpha values to avoid the internal 256 thing
   var subLayers = params.layers;
   var subAlphas = [];
   var totalAlphaYet = 0;
@@ -69,7 +65,6 @@ Akari.Display.Effects.ForceMotionBlur = function( params )
   {
     canvas.addChild( subLayers[ i ].source );
     
-    // As for the internal 256 thing
     var idealTotalAlpha = Math.ceil( 256 * ( i + 1 ) / subLayers.length );
     var subAlpha = idealTotalAlpha - totalAlphaYet;
     subAlphas.push( ( subAlpha + 1 ) / 256 );
@@ -99,7 +94,6 @@ Akari.Display.Effects.ForceMotionBlur = function( params )
     original.update( time );
     baseUpdate( time );
     
-    // Update each layer included
     var offset = 0;
     foreach ( subLayers, function( key, object )
     {

@@ -25,7 +25,6 @@ Akari.Display.Layer = function( params )
   // Create a private binder for properties
   var binder = Akari.Utilities.Binder({ object : params.source, properties : params.properties || {} });
   
-  // Create the object
   var layer =
   {
     source : params.source,
@@ -42,7 +41,6 @@ Akari.Display.Layer = function( params )
     {
       if ( time < params.inPoint || time >= params.outPoint )
       {
-        // Set source invisible
         this.source.visible = false;
       }
       else
@@ -50,7 +48,6 @@ Akari.Display.Layer = function( params )
         // Set source visible first, so that it can be overridden by binder.
         this.source.visible = true;
         
-        // Update the binder, make sure binder always take effect on layer level
         binder.update( time, this.getBinderScope() );
       }
     },
@@ -70,172 +67,6 @@ Akari.Display.Layer = function( params )
     {
       return Akari.Display.Layer( Akari.Utilities.Factory.clone( params ) );
     }
-  };
-  
-  // Update Layer for a first time to prevent flashing
-  layer.update( params.inPoint );
-  
-  return layer;
-};
-
-/* Class: DynamicVectorTextLayer
- * A type of layer specialized to display basic dynamic vector text (huge sizes over 200px or exotic fonts).
- *
- * dictionary
- *   An Object containing functions to create possible glyphs (due to Flash unable to clone vector content). 
- *   Glyphs should be provided by user, be anchored at top-left and be of 200px in size.
- * textProperties
- *   [default] { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "" }
- *   An Object, containing values or Bindings for vector text properties: horizontalAlign, verticalAlign, fontSize, letterSpacing, lineHeight, text.
- *   If fixedWidth is true, spacing between characters will always be fontSize + letterSpacing or ( fontSize / 2 ) + letterSpacing depending on which the actual width is nearer to.
- * inPoint
- *   A Number, the time (in milliseconds) at which the layers enters.
- * outPoint
- *   A Number, the time (in milliseconds) at which the layers exits.
- * properties
- *   [default] {}
- *   An Object, containing values or Bindings for each AS3 property.
- */
-Akari.Display.DynamicVectorTextLayer = function( params )
-{
-  // Create Sprites for alignment
-  var linesContainer = Akari.Display.Sprite();
-  var alignmentContainer = Akari.Display.Sprite();
-  alignmentContainer.addChild( linesContainer );
-  
-  // Create objects for binding and change detection, due to lack of property getter / setters.
-  var lastTextProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "" };
-  
-  var textProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "" };
-  var textPropertiesBinder = Akari.Utilities.Binder({ object : textProperties, properties : params.textProperties || {} });
-  
-  // Create a Layer to contain text.
-  var layer = Akari.Display.Layer(
-  {
-    source : alignmentContainer,
-    inPoint : params.inPoint,
-    outPoint : params.outPoint,
-    properties : params.properties
-  });
-  
-  // Simulate inheritance by making a backup of update function.
-  var baseUpdate = Akari.Utilities.Factory.clone( layer.update, layer );
-  
-  // Declare new update
-  layer.update = function( time )
-  {
-    baseUpdate( time );
-      
-    // Update binder and check if anything changes
-    textPropertiesBinder.update( time, layer.getBinderScope() );
-    
-    var needGlyphReset = ( textProperties.text != lastTextProperties.text );
-    var needGlyphAdjust = needGlyphReset || ( textProperties.letterSpacing != lastTextProperties.letterSpacing ) || ( textProperties.fontSize != lastTextProperties.fontSize );
-    var needAlignmentAdjust = needGlyphAdjust || ( textProperties.horizontalAlign != lastTextProperties.horizontalAlign ) || ( textProperties.verticalAlign != lastTextProperties.verticalAlign ) || ( textProperties.lineHeight != lastTextProperties.lineHeight );
-    
-    if ( needAlignmentAdjust ) lastTextProperties = Akari.Utilities.Factory.clone( textProperties );
-    
-    // Reset Glyphs if needed (most expensive)
-    if ( needGlyphReset )
-    {
-      // Remove all children from linesContainer
-      while ( linesContainer.numChildren > 0 ) linesContainer.removeChildAt( 0 );
-      
-      // Split text into lines to process
-      var lines = textProperties.text.split( "\n" );
-      
-      for ( var numLine = 0; numLine < lines.length; numLine ++ )
-      {
-        // For each line create a new Sprite to contain glyphs
-        var lineSprite = Sprite();
-        
-        for ( var numChar = 0; numChar < lines[ numLine ].length; numChar ++ )
-        {
-          // Create glyphs and put them in current line. Position does not matter since it will be corrected afterwards.
-          lineSprite.addChild( params.dictionary[ lines[ numLine ].charAt( numChar ) ]() );
-        }
-        
-        // Add new Sprite to linesContainer
-        linesContainer.addChild( lineSprite );
-      }
-    }
-    
-    // Adjust glyphs if needed
-    if ( needGlyphAdjust )
-    {
-      for ( var numLine = 0; numLine < linesContainer.numChildren; numLine ++ )
-      {
-        var lineSprite = linesContainer.getChildAt( numLine );
-        var accumulativeX = 0;
-        
-        for ( var numChar = 0; numChar < lineSprite.numChildren; numChar ++ )
-        {
-          var glyph = lineSprite.getChildAt( numChar );
-          
-          // Set letter spacing and size
-          glyph.x = accumulativeX;
-          glyph.scaleX = glyph.scaleY = textProperties.fontSize / 200.0;
-          
-          if ( textProperties.fixedWidth )
-          {
-            // Text is fixed width, transform the width
-            var nwFactor = Math.round( glyph.width / textProperties.fontSize );
-            accumulativeX += textProperties.fontSize * ( nwFactor / 2 + 0.5 ) + textProperties.letterSpacing;
-          }
-          else
-          {
-            // Always use actual width
-            accumulativeX += glyph.width + textProperties.letterSpacing;
-          }
-        }
-      }
-    }
-    
-    // Adjust alignment if needed
-    if ( needAlignmentAdjust )
-    {
-      for ( var numLine = 0; numLine < linesContainer.numChildren; numLine ++ )
-      {
-        var lineSprite = linesContainer.getChildAt( numLine );
-        
-        // Set line height and alignment
-        switch ( textProperties.horizontalAlign )
-        {
-          case "left":
-            lineSprite.x = 0;
-            break;
-          case "right":
-            lineSprite.x = - lineSprite.width;
-            break;
-          case "center":
-            lineSprite.x = - lineSprite.width / 2;
-            break;
-        }
-        lineSprite.y = numLine * textProperties.lineHeight;
-      }
-      
-      // Set vertical alignment
-      switch ( textProperties.verticalAlign )
-      {
-        case "top":
-          linesContainer.y = 0;
-          break;
-        case "bottom":
-          linesContainer.y = - linesContainer.height;
-          break;
-        case "center":
-          linesContainer.y = - linesContainer.height / 2;
-          break;
-      }
-    }
-  };
-    
-  /* Function: clone
-   * Custom clone function for binder to work.
-   */
-  layer.clone = function()
-  {
-    return Akari.Display.DynamicVectorTextLayer( Akari.Utilities.Factory.clone( params ) );
   };
   
   // Update Layer for a first time to prevent flashing
@@ -293,7 +124,6 @@ Akari.Display.DynamicSourceLayer = function( params )
     {
       baseUpdate( time );
       
-      // Update nested DynamicLayerSourceProvider to fit timeline.
       if ( this.source.visible )
         nestedProvider.update( params.timeRemap( time ) );
     };
@@ -304,7 +134,6 @@ Akari.Display.DynamicSourceLayer = function( params )
     {
       baseUpdate( time );
       
-      // Update nested Composition to fit timeline.
       if ( this.source.visible )
         nestedProvider.update( inPointTime + ( time - params.inPoint ) * (outPointTime - inPointTime) / ( params.outPoint - params.inPoint) );
     };
@@ -348,7 +177,6 @@ Akari.Display.DynamicSourceLayer = function( params )
  */
 Akari.Display.Composition = function( params )
 {
-  // Create a Sprite as container.
   var canvas = Akari.Display.Sprite();
   if ( params.hasBoundaries )
   {
@@ -357,7 +185,6 @@ Akari.Display.Composition = function( params )
     canvas.mask = solidMask;
   }
   
-  // Add all Layers to the Sprite in order.
   var layers = params.layers || [];
   var i = 0;
   
@@ -389,7 +216,6 @@ Akari.Display.Composition = function( params )
       if ( time >= startTime + duration )
         return this.update( startTime + duration - 1 );
       
-      // Update all layers, set parent property dynamically on the first call as well
       foreach( this.layers, function( key, object )
       {
         if ( !object.parent ) object.parent = this;
@@ -431,13 +257,11 @@ Akari.Display.Composition = function( params )
  */
 Akari.Display.MainComposition = function( params )
 {
-  // Change default value for hasBoundaries
   if (!( params.hasBoundaries === false ))
   {
     params.hasBoundaries = true;
   }
   
-  // Create base Composition
   var composition = Akari.Display.Composition( params );
   
   // Remember when did the comp last update to maintain seekability.
@@ -446,18 +270,14 @@ Akari.Display.MainComposition = function( params )
   // Remember the player size to maintain scalability
   var lastWidth, lastHeight;
   
-  // Add new functions for presenting
-  
   // Prepare the frame function, need a private handle for removing.
   var frameFunction = function()
   {
     // Check if player is running
     if ( Player.state === "playing" )
     {        
-      // Update Timer
       Akari.Utilities.Timer.update();
       
-      // Update Composition
       composition.update( Akari.Utilities.Timer.time );
     }
     else
@@ -471,10 +291,8 @@ Akari.Display.MainComposition = function( params )
     // I dislike polling but can't find a event to listen for this. Need suggestion
     if ( $.width != lastWidth || $.height != lastHeight )
     {
-      // Maximize self in container
       maximizeInContainer();
       
-      // Set variables
       lastWidth = $.width;
       lastHeight = $.height;
     }
@@ -482,12 +300,10 @@ Akari.Display.MainComposition = function( params )
   
   var maximizeInContainer = function()
   {
-    // Maximize
     ratio = Math.min( $.width / Akari.root.scaleX / composition.width, $.height / Akari.root.scaleY / composition.height );
     composition.canvas.scaleX = ratio;
     composition.canvas.scaleY = ratio;
     
-    // Center
     composition.canvas.x = ( $.width / Akari.root.scaleX - composition.width * ratio ) / 2;
     composition.canvas.y = ( $.height / Akari.root.scaleY - composition.height * ratio ) / 2;
   };
@@ -506,13 +322,10 @@ Akari.Display.MainComposition = function( params )
    */
   composition.present = function()
   {
-    // Listen canvas enterFrame
     this.canvas.addEventListener( "enterFrame", frameFunction );
     
-    // Add self to display tree
     Akari.root.addChild( this.canvas );
     
-    // Call the frame function for a first time
     frameFunction();
   };
     
@@ -521,10 +334,8 @@ Akari.Display.MainComposition = function( params )
    */
   composition.detach = function()
   {
-    // Remove canvas enterFrame
     this.canvas.removeEventListener( "enterFrame", frameFunction );
     
-    // Remove self from display tree
     Akari.root.removeChild( this.canvas );
   };
     
@@ -546,6 +357,63 @@ Akari.Display.MainComposition = function( params )
 Akari.Display.MainComposition.getInstance = function()
 {
   return Global._get("__mainComp_akari");
+};
+
+/* Class: Animation
+ * A DynamicLayerSourceProvider with primitive stop motion animation support.
+ *
+ * frames
+ *   An Array of functions with signature function( graphics ){ }.
+ * frameRate
+ *   [default] 12
+ *   The rate at which the animation is played.
+ *   Setting a rate much too high while having a complex scene can probably cause performance problems.
+ */
+Akari.Display.Animation = function( params )
+{
+  var lastFrame = 0;
+  var frameRate = params.frameRate || 12;
+  
+  // Function for getting the current frame
+  var findCurrentIndex = function( time )
+  {
+    return Math.floor( time * frameRate / 1000 );
+  };
+  
+  var canvas = Akari.Display.Shape();
+  
+  return
+  {
+    startTime : 0,
+    duration : params.frames.length * 1000 / frameRate,
+    canvas : canvas,
+    
+    /* Function: update
+     * Updates the canvas to fit the timeline.
+     *
+     * time
+     *   A Number, the current time (in milliseconds) on the Animation's own timeline.
+     */
+    update : function( time )
+    {
+      // Check if an update is needed
+      var currentFrame = findCurrentIndex( time );
+      if ( currentFrame === lastFrame ) return;
+      
+      canvas.graphics.clear();
+      params.frames[ currentFrame ]( canvas.graphics );
+      
+      lastFrame = currentFrame;
+    },
+    
+    /* Function: clone
+     * Custom clone function for canvas and such.
+     */
+    clone : function()
+    {
+      return Akari.Display.Animation( Akari.Utilities.Factory.clone( params ) );
+    }
+  };
 };
 
 /* Class: Sprite
@@ -735,7 +603,6 @@ Akari.Display.Checkerboard = function( params )
 {
   var shape = Akari.Display.Shape();
   
-  // Draw the background
   shape.graphics.beginFill( params.color1 );
   shape.graphics.drawRect( 0, 0, params.width, params.height );
   shape.graphics.endFill();
