@@ -3,12 +3,11 @@
  *
  * The sample gives a quick glance into what the display system can do, and how you can create your own little crowd
  * of dancing colorful blocks with less than 100 lines (comments excluded) of mostly human comprehensible descriptions.
+ * Used in a getting started tutorial. This sample assumes that you are familiar with the sample DisplayingContents.
  */
 
-// Fetch a global reference for Akari
 var Akari = Global._get( "__akari" );
 
-// Import namespaces by extending this closure
 Akari.Utilities.Factory.extend( this, Akari.Utilities );
 Factory.extend( this, Akari.Display );
 Factory.extend( this, Akari.Animation );
@@ -25,12 +24,8 @@ function SimpleComp()
     [
       Layer(
       {
-        // Specify a source for the layer. Sources are no more than DisplayObjects that do the actual rendering.
-        // We want Layers on those DisplayObjects to make our life easier.
         source : Anchor({ source : Solid({ width : 100, height : 100, color : 0xFFFFFF }) }),
         
-        // Specify Bindings. Bindings are simply values you want to assign to properties, or more frequently, functions that produce them.
-        // Akari.biliScript use Bindings because they are more analogous to human thinking, and because they are by nature seekable.
         properties :
         {
           // Place a function on X-axis to make it move according to time
@@ -86,10 +81,8 @@ function SimpleComp()
   });
 }
 
-// Create a MainComposition for putting this on the screen
 var mainComp = MainComposition(
 {
-  // Sizes can be arbitrary, for Akari.biliScript will fit anything into the window.
   width : 1280,
   height : 720,
   
@@ -121,5 +114,4 @@ var mainComp = MainComposition(
   })
 });
 
-// That's it! Time to see it in action.
 Akari.execute( mainComp );

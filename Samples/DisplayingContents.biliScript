@@ -4,7 +4,7 @@
  * Used in a getting started tutorial. This sample assumes that you are familiar with the sample EmptyProject.
  */
 
- var Akari = Global._get( "__akari" );
+var Akari = Global._get( "__akari" );
 
 Akari.Utilities.Factory.extend( this, Akari.Utilities );
 Akari.Utilities.Factory.extend( this, Akari.Display );
