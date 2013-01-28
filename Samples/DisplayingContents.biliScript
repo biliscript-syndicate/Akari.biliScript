@@ -1,0 +1,130 @@
+/* Sample: DisplayingContents
+ * Displaying various shapes.
+ *
+ * Used in a getting started tutorial. This sample assumes that you are familiar with the sample EmptyProject.
+ */
+
+ var Akari = Global._get( "__akari" );
+
+Akari.Utilities.Factory.extend( this, Akari.Utilities );
+Akari.Utilities.Factory.extend( this, Akari.Display );
+
+var mainComp = MainComposition(
+{
+  // Setting the dimensions of our main composition. Sizes here can be arbitrary, for Akari.biliScript will fit anything into the window.
+  width : 1280,
+  height : 720,
+
+  // Filling our main composition with Layers. A Composition is the framework for an animation, whereas Layers are elements that make it up.
+  // Compositions are comparable to movie clips in Flash, while Layers are comparable to layers in it.
+  // An element is added to a Composition by creating a Layer for which the element is the source, and adding the Layer to the Composition.
+  layers :
+  [
+    Layer(
+    {
+      // Each Layer has a source, a DisplayObject containing graphic elements to associate with the layer, from which the Layer gets its content.
+      // Using a full screen sized Solid as the source here. A Solid is a Shape that contains a rectangle filled with solid color.
+      source : Solid({ width : 1280, height : 720, color : 0x0000FF }),
+
+      // In/out points are time points at which the layer gets active/inactive. Only active layers are visible and are updated every frame.
+      // Here the layer is set to cover the whole duration of our composition (default duration for a composition is 60 seconds)
+      inPoint : 0,
+      outPoint : 60000
+    }),
+
+    // Another four layers placed at the corners
+    Layer(
+    {
+      source : Solid({ width : 200, height : 200, color : 0xFF00FF }),
+
+      inPoint : 0,
+      outPoint : 60000,
+
+      // Here we are using a Bindings object to set our layer's position. More is shown about in the Animating sample.
+      // The Binder class is used in various scenarios to sync values of objects' properties to their designated ones.
+      // A Binder consumes a dictionary of time-state map functions, which is called a Bindings object. 
+      properties :
+      {
+        x : 0,
+        y : 0
+      }
+    }),
+
+    Layer(
+    {
+      source : Solid({ width : 200, height : 200, color : 0xFF00FF }),
+
+      inPoint : 0,
+      outPoint : 60000,
+
+      properties :
+      {
+        x : 1080,
+        y : 0
+      }
+    }),
+
+    Layer(
+    {
+      source : Solid({ width : 200, height : 200, color : 0xFF00FF }),
+
+      inPoint : 0,
+      outPoint : 60000,
+
+      properties :
+      {
+        x : 0,
+        y : 520
+      }
+    }),
+
+    Layer(
+    {
+      source : Solid({ width : 200, height : 200, color : 0xFF00FF }),
+
+      inPoint : 0,
+      outPoint : 60000,
+
+      properties :
+      {
+        x : 1080,
+        y : 520
+      }
+    }),
+
+    // Adding two layers on top of the others. Modify the sequence of layers to see how the layers are stacked to create the desired scene.
+    Layer(
+    {
+      // An Anchor wraps around the solid to make it's transformations originate from its center. A wrapper is necessary since Flash does not allow modification of display objects' anchor points.
+      source : Anchor({ source : Solid({ width : 1000, height : 1000, color : 0xFF0000 }) }),
+
+      inPoint : 0,
+      outPoint : 60000,
+
+      properties :
+      {
+        // Notice how the anchor affect these settings
+        x : 640,
+        y : 360,
+
+        rotation : 45
+      }
+    }),
+
+    Layer(
+    {
+      source : Anchor({ source : Solid({ width : 500, height : 500, color : 0xFFFF00 }) }),
+
+      inPoint : 0,
+      outPoint : 60000,
+
+      properties :
+      {
+        x : 640,
+        y : 360
+      }
+    })
+  ]
+});
+
+Akari.execute( mainComp );
