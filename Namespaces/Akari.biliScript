@@ -12,7 +12,7 @@ Akari = {};
  */
 Akari.execute = function( mainComp )
 {
-  // Create a global reference so that the main composition could be accessed in ExpressionBinds
+  // Create a global reference so that the main composition could be accessed in Expressions
   Global._set( "__mainComp_akari", mainComp );
   
   // Present the main composition

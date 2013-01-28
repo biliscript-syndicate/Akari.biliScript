@@ -1,0 +1,88 @@
+/* Sample: CharacterAnimation
+ * Sample demonstrating usage of RangeSelector and Animator class. A really simple per-character 3D test scene.
+ */
+
+var Akari = Global._get( "__akari" );
+
+Akari.Utilities.Factory.extend( this, Akari.Utilities );
+Factory.extend( this, Akari.Display );
+Factory.extend( this, Akari.Display.Text );
+Factory.extend( this, Akari.Animation );
+
+// A sample dictionary with a square and a circle.
+var dictionary = {
+  "●" : function( graphics )
+  {
+    graphics.beginFill( 0xFFFFFF, 1 );
+    graphics.drawCircle( 100, 100, 100 );
+    graphics.endFill();
+  },
+  "■" : function( graphics )
+  {
+    graphics.beginFill( 0xFFFFFF, 1 );
+    graphics.drawRect( 0, 0, 200, 200 );
+    graphics.endFill();
+  }
+};
+
+var mainComp = MainComposition(
+{
+  width : 1280,
+  height : 720,
+
+  layers :
+  [
+    DynamicVectorTextLayer(
+    {
+      dictionary : dictionary,
+      textProperties : { horizontalAlign : "center", verticalAlign : "center", fontSize : 50, text : "●●■■●●■■●●" },
+
+      inPoint : 0,
+      outPoint : 60000,
+
+      properties : 
+      {
+        x : 640,
+        y : 360
+      },
+
+      animators :
+      [
+        Animator(
+        {
+          selector : RangeSelector(
+          {
+            shapingFunc : RangeShape.triangle,
+            properties :
+            {
+              start : 0,
+              end : 4,
+
+              // Playing with offset to have the triangle "pass through" the string.
+              offset : KeyframesBind(
+              {
+                keyframes :
+                [
+                  Keyframe({ time : 0, value : 1 }),
+                  Keyframe({ time : 60000, value : -4 })
+                ]
+              })
+            }
+          }),
+          bindings :
+          {
+            x : 200,
+            y : -200,
+            z : 500,
+
+            rotationX : 1440,
+            rotationY : -720,
+            rotationZ : 360
+          }
+        })
+      ]
+    })
+  ]
+});
+
+Akari.execute( mainComp );
