@@ -40,15 +40,15 @@ Akari.Display.Effects.TrackMatte = function( params )
  * layers
  *   The Layers to use.
  * exposureTime
- *   [default] 20.8333
- *   Exposure time (in milliseconds). Defaults to 1000/48 (double the Player frame rate).
+ *   [default] 8.3333
+ *   Exposure time (in milliseconds). Defaults to 1000/120 (double the Player frame rate).
  * shutterPhase
  *   [default] -90
  *   Shutter phase in degrees.
  */
 Akari.Display.Effects.ForceMotionBlur = function( params )
 {
-  if ( !params.exposureTime ) params.exposureTime = 1000.0 / 48.0;
+  if ( !params.exposureTime ) params.exposureTime = 1000.0 / 120.0;
   var shutterOffset = params.exposureTime * ( params.shutterPhase || -90.0 ) / 180.0;
   
   var canvas = Akari.Display.Sprite();
