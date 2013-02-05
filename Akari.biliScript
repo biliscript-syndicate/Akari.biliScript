@@ -1,4 +1,4 @@
-/* Akari.biliScript - v20130203
+/* Akari.biliScript - v20130206
  * Copyright (C) 2013 EPM
  *
  * This program is free software: you can redistribute it and/or modify
@@ -643,7 +643,7 @@ Akari.Display.Composition = function( params )
     canvas.mask = solidMask;
   }
   
-  var layers = params.layers || [];
+  var layers = Akari.Utilities.Factory.collapse( params.layers || [] );
   var i = 0;
   
   for ( i = 0; i < layers.length; i ++ )
@@ -657,7 +657,7 @@ Akari.Display.Composition = function( params )
     height : params.height || $.height,
     startTime : params.startTime || 0,
     duration : params.duration || 60000,
-    layers : Akari.Utilities.Factory.collapse( layers ),
+    layers : layers,
     canvas : canvas,
     
     /* Function: update
