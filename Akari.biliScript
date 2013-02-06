@@ -1,5 +1,6 @@
 /* Akari.biliScript - v20130206
  * Copyright (C) 2013 EPM
+ * <https://github.com/akaza-akari/Akari.biliScript>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,11 +14,14 @@
  * 
  * For a copy of the GNU General Public License,
  * see <http://www.gnu.org/licenses/>.
- *
- * Documenting convention:
- *
- * For those functions that accept only one Object "params", only the content of the Object is documented.
  */
+
+// Hack for "play again" button hiding the original Akari.root Sprite
+// Since parent is banned we can only detach the previously stored reference and create a new one.
+if ( Global._get( "__isExecuted_akari" ) )
+{
+  ( Global._get( "__akari" ) ).stop();
+}
 
 
 /* Namespace: Akari
