@@ -66,6 +66,8 @@ Akari.root = function()
         }
       ]
     });
+
+    spriteManager.popEl( sprite );
     
     // remove 3D to make it clear by default
     sprite.transform.matrix3D = null;

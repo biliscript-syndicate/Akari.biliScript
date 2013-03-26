@@ -1,4 +1,4 @@
-/* Akari.biliScript - v20130206
+/* Akari.biliScript - v20130326
  * Copyright (C) 2013 EPM
  * <https://github.com/akaza-akari/Akari.biliScript>
  *
@@ -16,11 +16,9 @@
  * see <http://www.gnu.org/licenses/>.
  */
 
-// Hack for "play again" button hiding the original Akari.root Sprite
-// Since parent is banned we can only detach the previously stored reference and create a new one.
 if ( Global._get( "__isExecuted_akari" ) )
 {
-  ( Global._get( "__akari" ) ).stop();
+  stopExecution();
 }
 
 
@@ -91,6 +89,8 @@ Akari.root = function()
         }
       ]
     });
+
+    spriteManager.popEl( sprite );
     
     // remove 3D to make it clear by default
     sprite.transform.matrix3D = null;
@@ -899,8 +899,7 @@ Akari.Display.Sprite = function()
     ]
   });
   
-  Akari.root.addChild( sprite );
-  Akari.root.removeChild( sprite );
+  ScriptManager.popEl( sprite );
   
   // remove 3D to make it clear by default
   sprite.transform.matrix3D = null;
@@ -929,8 +928,7 @@ Akari.Display.Shape = function()
     ]
   });
   
-  Akari.root.addChild( shape );
-  Akari.root.removeChild( shape );
+  ScriptManager.popEl( shape );
   
   // remove 3D to make it clear by default
   shape.transform.matrix3D = null;
@@ -963,8 +961,7 @@ Akari.Display.Text = function( preserveGlow )
     ]
   });
   
-  Akari.root.addChild( text );
-  Akari.root.removeChild( text );
+  ScriptManager.popEl( text );
   
   if ( !preserveGlow ) text.filters = null;
   

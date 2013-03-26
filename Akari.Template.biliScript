@@ -16,11 +16,9 @@
  * see <http://www.gnu.org/licenses/>.
  */
 
-// Hack for "play again" button hiding the original Akari.root Sprite
-// Since parent is banned we can only detach the previously stored reference and create a new one.
 if ( Global._get( "__isExecuted_akari" ) )
 {
-  ( Global._get( "__akari" ) ).stop();
+  stopExecution();
 }
 
 {{AkariTemplate : Namespaces}}

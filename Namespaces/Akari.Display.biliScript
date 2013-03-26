@@ -437,8 +437,7 @@ Akari.Display.Sprite = function()
     ]
   });
   
-  Akari.root.addChild( sprite );
-  Akari.root.removeChild( sprite );
+  ScriptManager.popEl( sprite );
   
   // remove 3D to make it clear by default
   sprite.transform.matrix3D = null;
@@ -467,8 +466,7 @@ Akari.Display.Shape = function()
     ]
   });
   
-  Akari.root.addChild( shape );
-  Akari.root.removeChild( shape );
+  ScriptManager.popEl( shape );
   
   // remove 3D to make it clear by default
   shape.transform.matrix3D = null;
@@ -501,8 +499,7 @@ Akari.Display.Text = function( preserveGlow )
     ]
   });
   
-  Akari.root.addChild( text );
-  Akari.root.removeChild( text );
+  ScriptManager.popEl( text );
   
   if ( !preserveGlow ) text.filters = null;
   
