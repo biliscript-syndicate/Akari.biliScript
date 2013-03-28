@@ -1,5 +1,5 @@
 /* Sample: XarpleFontCharacterAnimation
- * Sample demonstrating usage of Xarple's vector font format.
+ * Sample demonstrating usage of Xarple's vector font format. A rip off the original CharacterAnimation.
  */
 
 var Akari = Global._get( "__akari" );
