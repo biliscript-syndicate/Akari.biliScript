@@ -182,12 +182,15 @@ Akari.Display.Text.Animator = function( params )
  * A type of layer specialized to display basic dynamic vector text (huge sizes over 200px or exotic fonts).
  *
  * dictionary
+ *   [default] null
  *   An Object containing functions with signature function( graphics ){ } for possible glyphs.
  *   Glyphs should be provided by user, be anchored at top-left and be of 200px in size.
+ *   Deprecated. Use the font parameter in textProperties instead.
  * textProperties
- *   [default] { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "" }
+ *   [default] { font : null, horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "" }
  *   An Object, containing values or Bindings for vector text properties: horizontalAlign, verticalAlign, fontSize, letterSpacing, lineHeight, text.
  *   If fixedWidth is true, spacing between characters will always be fontSize + letterSpacing or ( fontSize / 2 ) + letterSpacing depending on which the actual width is nearer to.
+ *   If font is set, lineHeight and letterSpacing will be overrided by font settings if omitted.
  * inPoint
  *   A Number, the time (in milliseconds) at which the layers enters.
  * outPoint
@@ -207,9 +210,16 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
   alignmentContainer.addChild( linesContainer );
   
   // Create objects for binding and change detection, due to lack of property getter / setters.
-  var lastTextProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "" };
-  
-  var textProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "" };
+  if ( params.textProperties.font )
+  {
+    var lastTextProperties = { font : null, horizontalAlign : "left", verticalAlign : "top", letterSpacing : null, fixedWidth : false, fontSize : 200, lineHeight : null, text : "" };
+    var textProperties = { font : null, horizontalAlign : "left", verticalAlign : "top", letterSpacing : null, fixedWidth : false, fontSize : 200, lineHeight : null, text : "" };
+  }
+  else
+  {
+    var lastTextProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "" };
+    var textProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "" };
+  }
   var textPropertiesBinder = Akari.Utilities.Binder({ object : textProperties, properties : params.textProperties || {} });
   
   var animators = params.animators || [];
@@ -232,19 +242,19 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
     // Update binder and check if anything changes
     textPropertiesBinder.update( time, layer.getBinderScope() );
 
-    var needGlyphReset = ( textProperties.text != lastTextProperties.text );
-    var needGlyphAdjust = ( params.animators.length > 0 ) || needGlyphReset || ( textProperties.letterSpacing != lastTextProperties.letterSpacing ) || ( textProperties.fontSize != lastTextProperties.fontSize );
-    var needAlignmentAdjust = ( params.animators.length > 0 ) || needGlyphAdjust || ( textProperties.horizontalAlign != lastTextProperties.horizontalAlign ) || ( textProperties.verticalAlign != lastTextProperties.verticalAlign ) || ( textProperties.lineHeight != lastTextProperties.lineHeight );
+    var needGlyphReset = ( textProperties.text != lastTextProperties.text ) || ( textProperties.font != lastTextProperties.font );
+    var needGlyphAdjust =  needGlyphReset || ( params.animators.length > 0 ) ||( textProperties.letterSpacing != lastTextProperties.letterSpacing ) || ( textProperties.fontSize != lastTextProperties.fontSize );
+    var needAlignmentAdjust = needGlyphAdjust || ( params.animators.length > 0 ) || ( textProperties.horizontalAlign != lastTextProperties.horizontalAlign ) || ( textProperties.verticalAlign != lastTextProperties.verticalAlign ) || ( textProperties.lineHeight != lastTextProperties.lineHeight );
 
     if ( needAlignmentAdjust ) lastTextProperties = Akari.Utilities.Factory.clone( textProperties );
+      
+    // Split text into lines to process
+    var lines = textProperties.text.split( "\n" );
 
     // Reset Glyphs if needed (most expensive)
     if ( needGlyphReset )
     {
       while ( linesContainer.numChildren > 0 ) linesContainer.removeChildAt( 0 );
-      
-      // Split text into lines to process
-      var lines = textProperties.text.split( "\n" );
       
       for ( var numLine = 0; numLine < lines.length; numLine ++ )
       {
@@ -255,7 +265,20 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
         {
           // Create glyphs and put them in current line. Position does not matter since it will be corrected afterwards.
           var glyphShape = Akari.Display.Shape();
-          params.dictionary[ lines[ numLine ].charAt( numChar ) ]( glyphShape.graphics );
+          var char = lines[ numLine ].charAt( numChar );
+          if ( textProperties.font )
+          {
+            if ( textProperties.font.hasOwnProperty( char ) )
+            {
+              glyphShape.graphics.beginFill( 0xFFFFFF );
+              glyphShape.graphics.drawPath( textProperties.font[ char ].commands, textProperties.font[ char ].paths, 'nonZero' );
+              glyphShape.graphics.endFill();
+            }
+          }
+          else
+          {
+            params.dictionary[ char ]( glyphShape.graphics );
+          }
           lineSprite.addChild( glyphShape );
         }
         
@@ -270,10 +293,12 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
       {
         var lineSprite = linesContainer.getChildAt( numLine );
         var accumulativeX = 0;
+        var lastChar = null;
         
         for ( var numChar = 0; numChar < lineSprite.numChildren; numChar ++ )
         {
           var glyph = lineSprite.getChildAt( numChar );
+          var char = lines[ numLine ].charAt( numChar );
 
           // Reset glyph positioning, so that glyphs don't "drift away" with animators.
           glyph.transform.matrix3D = null;
@@ -281,18 +306,32 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
           mx.identity();
           glyph.transform.matrix = mx;
           
+          glyph.scaleX = glyph.scaleY = textProperties.fontSize / ( textProperties.font ? textProperties.font.size : 200.0 );
+
+          if ( textProperties.font && textProperties.font.hasOwnProperty( char ) && textProperties.font[ char ].kernings.hasOwnProperty( lastChar ) )
+          {
+            accumulativeX += textProperties.font[ char ].kernings[ lastChar ].x * glyph.scaleX;
+          }
           glyph.x = accumulativeX;
-          glyph.scaleX = glyph.scaleY = textProperties.fontSize / 200.0;
           
           if ( textProperties.fixedWidth )
           {
             var nwFactor = Math.round( glyph.width / textProperties.fontSize );
-            accumulativeX += textProperties.fontSize * ( nwFactor / 2 + 0.5 ) + textProperties.letterSpacing;
+            accumulativeX += textProperties.fontSize * ( nwFactor / 2 + 0.5 ) + ( textProperties.letterSpacing || 0 );
           }
           else
           {
-            accumulativeX += glyph.width + textProperties.letterSpacing;
+            if ( textProperties.font )
+            {
+              accumulativeX += textProperties.font[ char ].advance * glyph.scaleX + ( textProperties.letterSpacing || 0 );
+            }
+            else 
+            {
+              accumulativeX += glyph.width + textProperties.letterSpacing;
+            }
           }
+
+          lastChar = char;
         }
       }
     }
@@ -317,7 +356,14 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
             lineSprite.x = - lineSprite.width / 2;
             break;
         }
-        lineSprite.y = numLine * textProperties.lineHeight;
+        if ( textProperties.font )
+        {
+          lineSprite.y = numLine * ( textProperties.lineHeight || ( textProperties.font.height * textProperties.fontSize / textProperties.font.size ) );
+        }
+        else
+        {
+          lineSprite.y = numLine * textProperties.lineHeight;
+        }
       }
       
       // Set vertical alignment

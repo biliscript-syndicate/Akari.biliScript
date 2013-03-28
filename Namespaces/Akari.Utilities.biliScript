@@ -56,6 +56,12 @@ Akari.Utilities.Factory =
    */
   clone : function( object, scope )
   {
+    // It just might happen to be nothing.
+    if ( ! object )
+    {
+      return object;
+    }
+
     // Check if the object contains a custom clone function for cloning private variables.
     if ( object.hasOwnProperty( "clone" ) )
     {
