@@ -90,7 +90,7 @@ Akari.Animation.Interpolation =
       var binaryIterations = 7;
       var sampleSize = 17;
     }
-    else ( cpS.length == 1 )
+    else if ( cpS.length == 2 )
     {
       var calcBezier = function( t, cp )
       {
