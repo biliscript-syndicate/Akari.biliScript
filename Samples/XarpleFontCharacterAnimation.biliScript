@@ -148,7 +148,32 @@ var mainComp = MainComposition(
   [
     DynamicVectorTextLayer(
     {
-      textProperties : { font : tnrFontData, horizontalAlign : "center", verticalAlign : "center", fontSize : 14, text : "Lorem ipsum dolor sit amet\nconsectetuer adipiscing elit" },
+      font : tnrFontData,
+
+      textProperties :
+      {
+        horizontalAlign : "center",
+        verticalAlign : "center",
+        fontSize : 14,
+        text : KeyframesBind(
+        {
+          keyframes :
+          [
+            Keyframe({ time : 0, value : "Lorem ipsum dolor sit amet\nconsectetuer adipiscing elit", interpolation : Interpolation.hold }),
+            Keyframe({ time : 30000, value : "tile gnicsipida reutetcesnoc\ntema tis rolod muspi meroL", interpolation : Interpolation.hold })
+          ]
+        }),
+
+        letterSpacing : KeyframesBind(
+        {
+          keyframes :
+          [
+            Keyframe({ time : 0, value : 0 }),
+            Keyframe({ time : 30000, value : 20 }),
+            Keyframe({ time : 60000, value : 0 })
+          ]
+        })
+      },
 
       inPoint : 0,
       outPoint : 60000,
