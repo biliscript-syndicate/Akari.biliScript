@@ -1164,6 +1164,205 @@ Akari.Animation.Interpolation =
       return result;
     };
   },
+
+  /* Function: bezier
+   * [expensive] Creates a bezier interpolation.
+   * The resulting interpolation transforms the input t with the given control points, and treats the resulting t as a linear time factor.
+   *
+   * cpS, cpD
+   *   Array of numbers. Coordinates on the source-t / destination-t axis.
+   */
+  bezier : function( cpS, cpD )
+  {
+    if ( cpS.length != cpD.length || cpS.length < 1 )
+    {
+      return Akari.Animation.Interpolation.linear;
+    }
+
+    // Only 0 < cpS < 1 are valid as a function of time
+    for ( var i = cpS.length - 1; i >= 0; i -- ) {
+      if ( cpS[ i ] < 0 || cpS[ i ] > 1 )
+      {
+        return Akari.Animation.Interpolation.linear;
+      }
+    }
+
+    if ( cpS.length > 2 )
+    {
+      // higher order curves
+      var calcBezier = function( t, cp )
+      {
+        var a = [];
+        a[ 0 ] = cp;
+
+        for ( var jr = 1; jr < cp.length; jr ++ )
+        {
+          a[ jr ] = [];
+          for ( var ir = 0; ir < cp.length - jr; ir ++ )
+          {
+            a[ jr ][ ir ] = ( 1 - t ) * a[ jr - 1 ][ ir ] + t * a[ jr - 1 ][ ir + 1 ];
+          }
+        }
+
+        return a[ cp.length - 1 ][ 0 ];
+      };
+
+      var calcSlope = null;
+
+      var newtonIterations = 2;
+      var binaryIterations = 7;
+      var sampleSize = 17;
+    }
+    else ( cpS.length == 1 )
+    {
+      var calcBezier = function( t, cp )
+      {
+        var c1 = cp[ 1 ];
+        var c2 = cp[ 2 ];
+        return ( ( ( 1 - 3 * c2 + 3 * c1 ) * t + 3 * c2 - 6 * c1 ) * t + 3 * c1) * t;
+      };
+
+      var calcSlope = function( t, cp )
+      {
+        var c1 = cp[ 1 ];
+        var c2 = cp[ 2 ];
+        return 3 * c1 + t * ( 6 * c2 - 12 * c1 + t * ( 3 - 9 * ( c2 - c1 ) ) );
+      };
+
+      var newtonIterations = 2;
+      var binaryIterations = 5;
+      var sampleSize = 11;
+    }
+    else
+    {
+      var calcBezier = function( t, cp )
+      {
+        var c1 = cp[ 1 ];
+        return ( ( t - 3 * c1 ) * t + 3 * c1) * t;
+      };
+
+      var calcSlope = function( t, cp )
+      {
+        var c1 = cp[ 1 ];
+        return 3 * c1 + t * ( 3 * t - 6 * c1 );
+      };
+
+      var newtonIterations = 1;
+      var binaryIterations = 3;
+      var sampleSize = 3;
+    }
+
+    // Samples for initial guess
+    var sampleS = [];
+    var sampleStep = 1 / ( sampleSize - 1 );
+    var allPointS = Akari.Utilities.Factory.collapse( [ 0, cpS, 1 ] );
+    var allPointD = Akari.Utilities.Factory.collapse( [ 0, cpD, 1 ] );
+    for ( var i = 0; i < sampleSize; i ++ )
+    {
+      sampleS[ i ] = calcBezier( i * sampleStep, allPointS );
+    }
+
+    var getInitialGuess = function( tS )
+    {
+      for ( var i = sampleS.length - 1; i >= 0; i -- )
+      {
+        // sampleS[ i ] just won't work. Don't know why, the player is so quirky
+        var s = i;
+        var s2 = i - 1;
+        if ( i === 0 || sampleS[ s2 ] <= tS )
+        {
+          return [ i - 1, ( i - 1 + ( tS - sampleS[ s2 ] ) / ( sampleS[ s ] - sampleS[ s2 ] ) ) * sampleStep ];
+        }
+      }
+      return [ 0, 0 ];
+    };
+
+    // Algorithm from Firefox's implementation of cubic-bezier
+    var newton = function( tS, guessTI )
+    {
+      for ( var i = 0; i < newtonIterations; i ++ )
+      {
+        var currentX = calcBezier( guessTI, allPointS ) - tS;
+        var currentSlope = calcSlope( guessTI, allPointS );
+
+        if ( Math.abs( currentSlope ) <= 0.00001 )
+        {
+          return guessTI;
+        }
+
+        guessTI -= currentX / currentSlope;
+      }
+
+      return guessTI;
+    };
+
+    var binary = function( tS, start, end )
+    {
+      var currentX;
+      var currentT;
+      var i = 0;
+
+      do
+      {
+        currentT = start + ( end - start ) / 2;
+        currentX = calcBezier( currentT, allPointS ) - tS;
+
+        if ( currentX > 0 )
+        {
+          end = currentT;
+        }
+        else
+        {
+          start = currentT;
+        }
+      } while ( Math.abs( currentX ) > 0.001 && ( ++ i ) < binaryIterations );
+
+      return currentT;
+    };
+
+    if ( calcSlope )
+    {
+      var getTI = function( t )
+      {
+        var ig = getInitialGuess( t );
+        var startPos = ig[ 0 ] * sampleStep;
+        var guessTI = ig[ 1 ];
+
+        var initialSlope = calcSlope( guessTI, allPointS );
+
+        if ( initialSlope > 0.02 )
+        {
+          return newton( t, guessTI );
+        }
+        else if ( initialSlope == 0.0 )
+        {
+          return guessTI;
+        }
+        else 
+        {
+          return binary( t, startPos, startPos + sampleStep );
+        }
+      };
+    }
+    else
+    {
+      var getTI = function( t )
+      {
+        var ig = getInitialGuess( t );
+        var startPos = ig[ 0 ] * sampleStep;
+
+        return binary( t, startPos, startPos + sampleStep );
+      };
+    }
+
+    return function( t, value1, value2 )
+    {
+      var tI = getTI( t );
+      var tD = calcBezier( tI, allPointD );
+
+      return value1 + ( value2 - value1 ) * tD;
+    };
+  },
   
   /* Function: hold
    * Holds value1
@@ -1663,10 +1862,9 @@ Akari.Display.Text.RangeShape =
  *   [default] {
  *               start : 0,
  *               end : 1,
- *               offset : 0,
- *               shapingFunc : RangeShape.square
+ *               offset : 0
  *             }
- *   Bindings for selector properties, units are proportion. shapingFunc converts proportion to effectFactor used by blendingFunc.
+ *   Bindings for selector properties, units are proportion.
  */
 Akari.Display.Text.RangeSelector = function( params )
 {
@@ -1926,7 +2124,7 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
           {
             if ( params.font )
             {
-              accumulativeX += params.font[ char ].advance * glyph.scaleX + ( textProperties.letterSpacing || 0 );
+              accumulativeX += params.font[ char ].advanceHori * glyph.scaleX + ( textProperties.letterSpacing || 0 );
             }
             else 
             {

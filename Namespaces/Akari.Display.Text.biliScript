@@ -63,10 +63,9 @@ Akari.Display.Text.RangeShape =
  *   [default] {
  *               start : 0,
  *               end : 1,
- *               offset : 0,
- *               shapingFunc : RangeShape.square
+ *               offset : 0
  *             }
- *   Bindings for selector properties, units are proportion. shapingFunc converts proportion to effectFactor used by blendingFunc.
+ *   Bindings for selector properties, units are proportion.
  */
 Akari.Display.Text.RangeSelector = function( params )
 {
@@ -326,7 +325,7 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
           {
             if ( params.font )
             {
-              accumulativeX += params.font[ char ].advance * glyph.scaleX + ( textProperties.letterSpacing || 0 );
+              accumulativeX += params.font[ char ].advanceHori * glyph.scaleX + ( textProperties.letterSpacing || 0 );
             }
             else 
             {
