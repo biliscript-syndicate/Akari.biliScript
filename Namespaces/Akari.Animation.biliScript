@@ -84,7 +84,33 @@ Akari.Animation.Interpolation =
         return a[ cp.length - 1 ][ 0 ];
       };
 
-      var calcSlope = null;
+      var calcSlope = function( t, cp )
+      {
+        var n = cp.length - 1;
+        var invT = 1 - t;
+
+        // A = ( 1 - t ) ^ ( n - i - 1 )
+        // B = t ^ ( i - 1 )
+        // C = ( n choose i )
+        // d/dt = P[ i ] * A * B * C * ( i - n * t )
+        var a = Math.pow( invT, n - 1 );
+        var b = 1 / t;
+        var c = 1;
+
+        var sum = cp[ 0 ] * a * b * c * ( - n * t );
+
+        for ( var i = 1; i <= n; i ++ )
+        {
+          // Update ABC values
+          a = a / invT;
+          b = b * t;
+          c = c * ( n - i + 1 ) / i;
+
+          sum += cp[ i ] * a * b * c * ( i - n * t );
+        }
+
+        return sum;
+      };
 
       var newtonIterations = 2;
       var binaryIterations = 7;
