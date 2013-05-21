@@ -166,19 +166,21 @@ Akari.Animation.Bezier = function()
 
   var getLength;
 
-  var subdiv = function( precision, cpS, cpD , removeRight )
+  var subdiv = function( precision, cp, removeRight )
   {
     // check if precision requirements are fulfilled
     var sumDelta = 0;
-    var startS = cpS[ 0 ];
-    var stepS = ( cpS[ cpS.length - 1 ] - startS ) / ( cpS.length - 1 );
-    var startD = cpD[ 0 ];
-    var stepD = ( cpD[ cpD.length - 1 ] - startD ) / ( cpD.length - 1 );
+    var start = 0;
+    var step = 0;
 
-    for ( var i = cpS.length - 2; i >= 1; i -- )
+    for ( var d = cp.length - 1; d >= 0; d -- )
     {
-      sumDelta += Math.abs( cpS[ i ] - startS - stepS * i );
-      sumDelta += Math.abs( cpD[ i ] - startD - stepD * i );
+      start = cp[ d ][ 0 ];
+      step = ( cp[ d ][ cp[ d ].length - 1 ] - start ) / ( cp[ d ].length - 1 );
+      for ( var i = cp[ d ].length - 2; i >= 1; i -- )
+      {
+        sumDelta += Math.abs( cp[ d ][ i ] - start - step * i );
+      }
     }
 
     if ( sumDelta <= precision )
@@ -189,47 +191,53 @@ Akari.Animation.Bezier = function()
     else
     {
       // subdivide and create polyline
-      var leftSegmentS = [ cpS[ 0 ] ];
-      var leftSegmentD = [ cpD[ 0 ] ];
-      var rightSegmentS = [];
-      var rightSegmentD = [];
+      var leftSegment = [];
+      var rightSegment = [];
+      var poly = [];
 
-      var polyS = cpS;
-      var polyD = cpD;
+      for ( var d = cp.length - 1; d >= 0; d -- )
+      {
+        leftSegment[ d ] = [ cp[ d ][ 0 ] ];
+        rightSegment[ d ] = [];
+        poly[ d ] = cp[ d ];
+      }
 
       do 
       {
-        var polyS2 = [];
-        var polyD2 = [];
+        var poly2 = [];
 
-        for ( var i = 0; i < polyS.length - 1; i ++ )
+        for ( var d = cp.length - 1; d >= 0; d -- )
         {
-          polyS2.push( ( polyS[ i ] + polyS[ i + 1 ] ) / 2 );
-          polyD2.push( ( polyD[ i ] + polyD[ i + 1 ] ) / 2 );
+          poly2[ d ] = [];
+          for ( var i = 0; i < poly[ d ].length - 1; i ++ )
+          {
+            poly2[ d ].push( ( poly[ d ][ i ] + poly[ d ][ i + 1 ] ) / 2 );
+          }
+
+          leftSegment[ d ].push( poly2[ d ][ 0 ] );
+          rightSegment[ d ].push( poly2[ d ][ poly2[ d ].length - 1 ] );
         }
 
-        leftSegmentS.push( polyS2[ 0 ] );
-        leftSegmentD.push( polyD2[ 0 ] );
-        rightSegmentS.push( polyS2[ polyS2.length - 1 ] );
-        rightSegmentD.push( polyD2[ polyD2.length - 1 ] );
+        poly = poly2;
+      } while ( poly[ 0 ].length > 1 );
 
-        polyS = polyS2;
-        polyD = polyD2;
-      } while ( polyS.length > 1 );
-
-      rightSegmentS.unshift( cpS[ cpS.length - 1 ] );
-      rightSegmentD.unshift( cpD[ cpD.length - 1 ] );
-
-      rightSegmentS.reverse();
-      rightSegmentD.reverse();
+      for ( var d = cp.length - 1; d >= 0; d -- )
+      {
+        rightSegment[ d ].unshift( cp[ d ][ cp[ d ].length - 1 ] );
+        rightSegment[ d ].reverse();
+      }
 
       // compose resulting polyline from recursive calls
-      var leftPoly = subdiv( precision, leftSegmentS, leftSegmentD, true );
-      var rightPoly = subdiv( precision, rightSegmentS, rightSegmentD, removeRight );
+      var leftPoly = subdiv( precision, leftSegment, true );
+      var rightPoly = subdiv( precision, rightSegment, removeRight );
 
       if ( ! leftPoly )
       {
-        leftPoly = [ [ leftSegmentS[ 0 ], leftSegmentD[ 0 ] ] ];
+        leftPoly = [ [] ];
+        for ( var d = cp.length - 1; d >= 0; d -- )
+        {
+          leftPoly[ 0 ].unshift( cp[ d ][ 0 ] );
+        }
       }
 
       if ( rightPoly )
@@ -239,11 +247,23 @@ Akari.Animation.Bezier = function()
       }
       else
       {
-        leftPoly.push( [ rightSegmentS[ 0 ], rightSegmentD[ 0 ] ] );
+        var tmp = [];
+
+        for ( var d = cp.length - 1; d >= 0; d -- )
+        {
+          tmp.unshift( rightSegment[ d ][ 0 ] );
+        }
+        leftPoly.push( tmp );
 
         if ( ! removeRight )
         {
-          leftPoly.push( [ rightSegmentS[ rightSegmentS.length - 1 ], rightSegmentD[ rightSegmentD.length - 1 ] ] );
+          tmp = [];
+
+          for ( var d = cp.length - 1; d >= 0; d -- )
+          {
+            tmp.unshift( rightSegment[ d ][ rightSegment[ d ].length - 1 ] );
+          }
+          leftPoly.push( tmp );
         }
 
         return leftPoly;
