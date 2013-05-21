@@ -1220,3 +1220,42 @@ Akari.Animation.WiggleKeyframes = function( params )
     return keyframes;
   }
 };
+ 
+/* Class: CurveTrace
+ * Traces through a Curve.
+ *
+ * curve
+ *   The Curve to use.
+ * animation
+ *   A Function( time ) that maps time to coefficient or length on the curve.
+ * mode
+ *   [default] "lengthProportion"
+ *   "coefficient", "length" or "lengthProportion", how the value returned from the function is interpreted.
+ */
+Akari.Animation.CurveTrace = function( params )
+{
+  var mode = params.mode || "lengthProportion";
+
+
+  if ( mode === "lengthProportion" )
+  {
+    return function( time )
+    {
+      return params.curve.evaluateAtLength( params.animation( time ) * params.curve.getLength() );
+    };
+  }
+  else if ( mode === "length" )
+  {
+    return function( time )
+    {
+      return params.curve.evaluateAtLength( params.animation( time ) );
+    };
+  }
+  else
+  {
+    return function( time )
+    {
+      return params.curve.evaluateAt( params.animation( time ) );
+    };
+  }
+};

@@ -1,4 +1,4 @@
-/* Akari.biliScript - v20130329
+/* Akari.biliScript - v20130521
  * Copyright (C) 2013 EPM
  * <https://github.com/akaza-akari/Akari.biliScript>
  *
@@ -1129,6 +1129,525 @@ Akari.Display.Checkerboard = function( params )
  */
 
 Akari.Animation = {};
+
+/* Class: BezierComponent
+ * Represents one component of a bezier curve.
+ *
+ * cp
+ *  Array of numbers. Coordinates of control points of the component.
+ */
+Akari.Animation.BezierComponent = function()
+{
+  var calcBezier = function( t )
+  {
+    var a = [];
+    a[ 0 ] = this.cp;
+
+    for ( var jr = 1; jr < this.cp.length; jr ++ )
+    {
+      a[ jr ] = [];
+      for ( var ir = 0; ir < this.cp.length - jr; ir ++ )
+      {
+        a[ jr ][ ir ] = ( 1 - t ) * a[ jr - 1 ][ ir ] + t * a[ jr - 1 ][ ir + 1 ];
+      }
+    }
+
+    return a[ this.cp.length - 1 ][ 0 ];
+  };
+
+  var calcSlope = function( t )
+  {
+    var n = this.cp.length - 1;
+    var invT = 1 - t;
+
+    // A = ( 1 - t ) ^ ( n - i - 1 )
+    // B = t ^ ( i - 1 )
+    // C = ( n choose i )
+    // d/dt = P[ i ] * A * B * C * ( i - n * t )
+    var a = Math.pow( invT, n - 1 );
+    var b = 1 / t;
+    var c = 1;
+
+    var sum = this.cp[ 0 ] * a * b * c * ( - n * t );
+
+    for ( var i = 1; i <= n; i ++ )
+    {
+      // Update ABC values
+      a = a / invT;
+      b = b * t;
+      c = c * ( n - i + 1 ) / i;
+
+      sum += this.cp[ i ] * a * b * c * ( i - n * t );
+    }
+
+    return sum;
+  };
+
+  return function( cp )
+  {
+    return
+    {
+      cp : cp,
+      calcBezier : calcBezier,
+      calcSlope : calcSlope
+    };
+  };
+}();
+
+/* Class: Spline < Curve
+ * Represents one spline.
+ *
+ * curves
+ *  Array of Curves. Dimension is determined by the dimension of the first curve.
+ * precision
+ *  [default] undefined
+ *  Number. Overrides default precision determined by implentations of Curve.
+ */
+Akari.Animation.Spline = function()
+{
+  var evaluateAt = function( t )
+  {
+    return this.evaluateAtLength( this.length * t );
+  };
+
+  var evaluateAtLength = function( length, precision )
+  {
+    // binary search for the corresponding segment
+    var start = 0;
+    var end = this.curves.length - 1;
+    var i = 0;
+    var loopFlag = false;
+
+    do
+    {
+      i = Math.floor( ( start + end ) / 2 );
+
+      if ( this.segmentsPosition[ i ] > length )
+      {
+        end = i;
+      }
+      else if ( this.segmentsPosition[ i + 1 ] < length )
+      {
+        start = i;
+      }
+      else
+      {
+        loopFlag = false;
+      }
+
+    } while ( loopFlag );
+
+    // call segment's evaluateAtLength
+    if ( precision )
+    {
+      return this.curves[ i ].evaluateAtLength( length - this.segmentsPosition[ i ], precision );
+    }
+    else
+    {
+      return this.segmentsPolyline[ i ].evaluateAtLength( length - this.segmentsPosition[ i ] );
+    }
+  };
+
+  var getLength = function()
+  {
+    return this.length;
+  };
+
+  var toPolyline = function( precision )
+  {
+    var newPoints = [];
+    if ( precision )
+    {
+      for ( var i = 0; i < this.curves.length - 1; i ++ )
+      {
+        newPoints = newPoints.concat( this.curves[ i ].toPolyline( precision ) );
+      }
+
+      return Akari.Animation.Polyline( newPoints );
+    }
+    else
+    {
+      // just concat stock points
+      for ( var i = 0; i < this.segmentsPolyline.length - 1; i ++ )
+      {
+        newPoints = newPoints.concat( this.segmentsPolyline.points );
+      }
+
+      return Akari.Animation.Polyline( newPoints );
+    }
+  };
+
+  var concat = function( other )
+  {
+    var newCurves = this.points.concat( other.curves );
+    return Akari.Animation.Spline( newCurves );
+  };
+
+  var cloneSelf = function()
+  {
+    return Akari.Animation.Spline( this.curves );
+  };
+
+  return function( curves, precision )
+  {
+    // calculate length of the spline
+    var segmentsLength = [];
+    var segmentsPosition = [];
+    var segmentsPolyline = [];
+    var length = 0;
+    var segLength = 0;
+    for ( var i = 0; i < curves.length - 1; i ++ )
+    {
+      segmentsPolyline.push( curves[ i ].toPolyline( precision ) );
+      segLength = segmentsPolyline[ i ].getLength();
+      segmentsPosition.push( length );
+      segmentsLength.push( segLength );
+      length += segLength;
+    }
+
+    return
+    {
+      // Spline
+      curves : curves,
+      concat : concat,
+      segmentsPolyline : segmentsPolyline,
+      segmentsLength : segmentsLength,
+      segmentsPosition : segmentsPosition,
+      length : length,
+      
+      // Curve common
+      dimension : curves[ 0 ].dimension,
+      evaluateAt : evaluateAt,
+      evaluateAtLength : evaluateAtLength,
+      getLength : getLength,
+      toPolyline : toPolyLine,
+      toSpline : cloneSelf
+    };
+  };
+}();
+
+/* Class: Polyline < Curve
+ * Represents one polyline.
+ *
+ * points
+ *  Array of Array<Number>s. Dimension is determined by the length of the first array.
+ */
+Akari.Animation.Polyline = function()
+{
+  var evaluateAt = function( t )
+  {
+    // Use evaluateAtLength for stuff, since this is easier for polyline
+    return this.evaluateAtLength( this.length * t );
+  };
+
+  var evaluateAtLength = function( length )
+  {
+    // binary search for the corresponding segment
+    var start = 0;
+    var end = this.points.length - 1;
+    var i = 0;
+    var loopFlag = false;
+
+    do
+    {
+      i = Math.floor( ( start + end ) / 2 );
+
+      if ( this.segmentsPosition[ i ] > length )
+      {
+        end = i;
+      }
+      else if ( this.segmentsPosition[ i + 1 ] < length )
+      {
+        start = i;
+      }
+      else
+      {
+        loopFlag = false;
+      }
+
+    } while ( loopFlag );
+
+    // interpolate
+    var p1 = this.points[ i ];
+    var p2 = this.points[ i + 1 ];
+    var t = ( length - this.segmentsPosition[ i ] ) / this.segmentsLength[ i ];
+    var ret = [];
+
+    for ( var d = this.dimension - 1; d >= 0; d -- )
+    {
+      ret.unshift( p2[ d ] * t + p1[ d ] * ( 1 - t ) );
+    }
+
+    return ret;
+  };
+
+  var concat = function( other )
+  {
+    var newPoints = this.points.concat( other.points );
+    return Akari.Animation.Polyline( newPoints );
+  };
+
+  var getLength = function()
+  {
+    return this.length;
+  };
+
+  var cloneSelf = function()
+  {
+    return Akari.Animation.Polyline( this.points );
+  };
+ 
+  var toSpline = function()
+  {
+    return Akari.Animation.Spline( [ this ] );
+  };
+
+  return function( points )
+  {
+    // calculate length of the polyline
+    var segmentsLength = [];
+    var segmentsPosition = [];
+    var length = 0;
+    var segLength = 0;
+    var distance = 0;
+    for ( var i = 0; i < points.length - 1; i ++ )
+    {
+      segLength = 0;
+      for ( var d = 0; d < points[ 0 ].length; d ++ )
+      {
+        distance = points[ i + 1 ][ d ] - points[ i ][ d ];
+        segLength += distance * distance;
+      }
+
+      segLength = Math.sqrt( segLength );
+      segmentsPosition.push( length );
+      segmentsLength.push( segLength );
+      length += segLength;
+    }
+
+    return
+    {
+      points : points,
+      segmentsLength : segmentsLength,
+      segmentsPosition : segmentsPosition,
+      length : length,
+      concat : concat,
+      
+      // Curve common
+      dimension : points[ 0 ].length,
+      evaluateAt : evaluateAt,
+      evaluateAtLength : evaluateAtLength,
+      getLength : getLength,
+      toPolyline : cloneSelf,
+      toSpline : toSpline
+    };
+  };
+}();
+
+/* Class: Bezier < Curve
+ * Represents one bezier curve.
+ *
+ * points
+ *  Array of Array<Number>s. Dimension is determined by the length of the first array.
+ */
+Akari.Animation.Bezier = function()
+{
+  var evaluateAt = function( t )
+  {
+    var ret = [];
+    for ( var i = this.dimension - 1; i >= 0; i -- )
+    {
+      ret.unshift( this.components[ i ].calcBezier( t ) );
+    }
+
+    return ret;
+  };
+
+  var evaluateAtLength = function( length, precision )
+  {
+    // Convert to a polyline and evaluate
+    return ( this.toPolyline( precision ) ).evaluateAtLength( length );
+  };
+
+  var getLength = function( precision )
+  {
+    // Convert to a polyline and measure polyline length
+    return ( this.toPolyline( precision ) ).getLength();
+  };
+
+  var subdiv = function( precision, cp, removeRight )
+  {
+    // check if precision requirements are fulfilled
+    var sumDelta = 0;
+    var start = 0;
+    var step = 0;
+
+    for ( var d = cp.length - 1; d >= 0; d -- )
+    {
+      start = cp[ d ][ 0 ];
+      step = ( cp[ d ][ cp[ d ].length - 1 ] - start ) / ( cp[ d ].length - 1 );
+      for ( var i = cp[ d ].length - 2; i >= 1; i -- )
+      {
+        sumDelta += Math.abs( cp[ d ][ i ] - start - step * i );
+      }
+    }
+
+    if ( sumDelta <= precision )
+    {
+      // return null indicating end of subdivision, treat as line
+      return null;
+    }
+    else
+    {
+      // subdivide and create polyline
+      var leftSegment = [];
+      var rightSegment = [];
+      var poly = [];
+
+      for ( var d = cp.length - 1; d >= 0; d -- )
+      {
+        leftSegment[ d ] = [ cp[ d ][ 0 ] ];
+        rightSegment[ d ] = [];
+        poly[ d ] = cp[ d ];
+      }
+
+      do 
+      {
+        var poly2 = [];
+
+        for ( var d = cp.length - 1; d >= 0; d -- )
+        {
+          poly2[ d ] = [];
+          for ( var i = 0; i < poly[ d ].length - 1; i ++ )
+          {
+            poly2[ d ].push( ( poly[ d ][ i ] + poly[ d ][ i + 1 ] ) / 2 );
+          }
+
+          leftSegment[ d ].push( poly2[ d ][ 0 ] );
+          rightSegment[ d ].push( poly2[ d ][ poly2[ d ].length - 1 ] );
+        }
+
+        poly = poly2;
+      } while ( poly[ 0 ].length > 1 );
+
+      for ( var d = cp.length - 1; d >= 0; d -- )
+      {
+        rightSegment[ d ].unshift( cp[ d ][ cp[ d ].length - 1 ] );
+        rightSegment[ d ].reverse();
+      }
+
+      // compose resulting polyline from recursive calls
+      var leftPoly = subdiv( precision, leftSegment, true );
+      var rightPoly = subdiv( precision, rightSegment, removeRight );
+
+      if ( ! leftPoly )
+      {
+        leftPoly = [ [] ];
+        for ( var d = cp.length - 1; d >= 0; d -- )
+        {
+          leftPoly[ 0 ].unshift( cp[ d ][ 0 ] );
+        }
+      }
+
+      if ( rightPoly )
+      {
+        var retPoly = leftPoly.concat( rightPoly );
+        return retPoly;
+      }
+      else
+      {
+        var tmp = [];
+
+        for ( var d = cp.length - 1; d >= 0; d -- )
+        {
+          tmp.unshift( rightSegment[ d ][ 0 ] );
+        }
+        leftPoly.push( tmp );
+
+        if ( ! removeRight )
+        {
+          tmp = [];
+
+          for ( var d = cp.length - 1; d >= 0; d -- )
+          {
+            tmp.unshift( rightSegment[ d ][ rightSegment[ d ].length - 1 ] );
+          }
+          leftPoly.push( tmp );
+        }
+
+        return leftPoly;
+      }
+    }
+  };
+
+  var toPolyline = function( precision )
+  {
+    if ( ! precision )
+    {
+      // Derive precision from coordinate range, assure 1/100 precision
+      var max = 0;
+      var min = Math.pow( 10, 309 );
+
+      for ( var d = this.cp.length - 1; d >= 0; d -- )
+      {
+        for ( var i = this.cp[ d ].length - 1; i >= 0; i-- )
+        {
+          if ( this.cp[ d ][ i ] > max )
+          {
+            max = this.cp[ d ][ i ];
+          }
+          else if ( this.cp[ d ][ i ] < min )
+          {
+            min = this.cp[ d ][ i ];
+          }
+        }
+      }
+
+      precision = ( max - min ) / 100;
+    }
+
+    return Akari.Animation.Polyline( subdiv( precision, this.cp, false ) || [ this.points[ 0 ], this.points[ this.points.length - 1 ] ] );
+  };
+ 
+  var toSpline = function()
+  {
+    return Akari.Animation.Spline( [ this ] );
+  };
+
+  return function( points )
+  {
+    // extract cp array for subdivision, evaluation and stuff
+    var cp = [];
+    var compo = [];
+
+    for ( var d = points[ 0 ].length - 1; d >= 0; d -- )
+    {
+      cp[ d ] = [];
+      for ( var i = points.length - 1; i >= 0; i -- )
+      {
+        cp[ d ].unshift( this.points[ i ][ d ] );
+      }
+
+      compo[ d ] = Akari.Animation.BezierComponent( cp[ d ] );
+    }
+
+    return
+    {
+      // Bezier
+      points : points,
+      cp : cp,
+      components : compo,
+      
+      // Curve common
+      dimension : points[ 0 ].length,
+      evaluateAt : evaluateAt,
+      evaluateAtLength : evaluateAtLength,
+      getLength : getLength,
+      toPolyline : toPolyline,
+      toSpline : toSpline
+    };
+  };
+}();
  
 /* Static Class: Interpolation
  * Provides functions for interpolating between numbers.
@@ -1207,7 +1726,33 @@ Akari.Animation.Interpolation =
         return a[ cp.length - 1 ][ 0 ];
       };
 
-      var calcSlope = null;
+      var calcSlope = function( t, cp )
+      {
+        var n = cp.length - 1;
+        var invT = 1 - t;
+
+        // A = ( 1 - t ) ^ ( n - i - 1 )
+        // B = t ^ ( i - 1 )
+        // C = ( n choose i )
+        // d/dt = P[ i ] * A * B * C * ( i - n * t )
+        var a = Math.pow( invT, n - 1 );
+        var b = 1 / t;
+        var c = 1;
+
+        var sum = cp[ 0 ] * a * b * c * ( - n * t );
+
+        for ( var i = 1; i <= n; i ++ )
+        {
+          // Update ABC values
+          a = a / invT;
+          b = b * t;
+          c = c * ( n - i + 1 ) / i;
+
+          sum += cp[ i ] * a * b * c * ( i - n * t );
+        }
+
+        return sum;
+      };
 
       var newtonIterations = 2;
       var binaryIterations = 7;
@@ -1796,6 +2341,45 @@ Akari.Animation.WiggleKeyframes = function( params )
     keyframes.push( Akari.Animation.Keyframe({ time : params.startTime + params.stepTime * ( ++ c ), value : keyframes[ 0 ].value, interpolation : params.interpolation || Akari.Animation.Interpolation.cubic.easeInOut }) );
     
     return keyframes;
+  }
+};
+ 
+/* Class: CurveTrace
+ * Traces through a Curve.
+ *
+ * curve
+ *   The Curve to use.
+ * animation
+ *   A Function( time ) that maps time to coefficient or length on the curve.
+ * mode
+ *   [default] "lengthProportion"
+ *   "coefficient", "length" or "lengthProportion", how the value returned from the function is interpreted.
+ */
+Akari.Animation.CurveTrace = function( params )
+{
+  var mode = params.mode || "lengthProportion";
+
+
+  if ( mode === "lengthProportion" )
+  {
+    return function( time )
+    {
+      return params.curve.evaluateAtLength( params.animation( time ) * params.curve.getLength() );
+    };
+  }
+  else if ( mode === "length" )
+  {
+    return function( time )
+    {
+      return params.curve.evaluateAtLength( params.animation( time ) );
+    };
+  }
+  else
+  {
+    return function( time )
+    {
+      return params.curve.evaluateAt( params.animation( time ) );
+    };
   }
 };
 
