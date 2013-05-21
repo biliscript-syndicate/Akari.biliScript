@@ -124,22 +124,97 @@ Akari.Animation.Spline = function()
  */
 Akari.Animation.Polyline = function()
 {
-  var evaluateAt;
+  var evaluateAt = function( t )
+  {
+    // Use evaluateAtLength for stuff, since this is easier for polyline
+    return this.evaluateAtLength( this.length * t );
+  };
 
-  var evaluateAtLength;
+  var evaluateAtLength = function( length )
+  {
+    // binary search for the corresponding segment
+    var start = 0;
+    var end = this.points.length - 1;
+    var i = 0;
+    var loopFlag = false;
 
-  var getLength;
+    do
+    {
+      i = Math.floor( ( start + end ) / 2 );
+
+      if ( this.segmentsPosition[ i ] > length )
+      {
+        end = i;
+      }
+      else if ( this.segmentsPosition[ i + 1 ] < length )
+      {
+        start = i;
+      }
+      else
+      {
+        loopFlag = false;
+      }
+
+    } while ( loopFlag );
+
+    // interpolate
+    var p1 = this.points[ i ];
+    var p2 = this.points[ i + 1 ];
+    var t = ( length - this.segmentsPosition[ i ] ) / this.segmentsLength[ i ];
+    var ret = [];
+
+    for ( var d = this.dimension - 1; d >= 0; d -- )
+    {
+      ret.unshift( p2[ d ] * t + p1[ d ] * ( 1 - t ) );
+    }
+
+    return ret;
+  };
+
+  var getLength = function()
+  {
+    return this.length;
+  };
 
   var cloneSelf = function()
   {
     return Akari.Animation.Polyline( this.points );
   };
+ 
+  var toSpline = function()
+  {
+    return Akari.Animation.Spline( [ this ] );
+  };
 
   return function( points )
   {
+    // calculate length of the polyline
+    var segmentsLength = [];
+    var segmentsPosition = [];
+    var length = 0;
+    var segLength = 0;
+    var distance = 0;
+    for ( var i = 0; i < points.length - 1; i ++ )
+    {
+      segLength = 0;
+      for ( var d = 0; d < points[ 0 ].length; d ++ )
+      {
+        distance = points[ i + 1 ][ d ] - points[ i ][ d ];
+        segLength += distance * distance;
+      }
+
+      segLength = Math.sqrt( segLength );
+      segmentsPosition.push( length );
+      segmentsLength.push( segLength );
+      length += segLength;
+    }
+
     return
     {
       points : points,
+      segmentsLength : segmentsLength,
+      segmentsPosition : segmentsPosition,
+      length : length,
       
       // Curve common
       dimension : points[ 0 ].length,
@@ -160,11 +235,28 @@ Akari.Animation.Polyline = function()
  */
 Akari.Animation.Bezier = function()
 {
-  var evaluateAt;
+  var evaluateAt = function( t )
+  {
+    var ret = [];
+    for ( var i = this.dimension - 1; i >= 0; i -- )
+    {
+      ret.unshift( this.components[ i ].calcBezier( t ) );
+    }
 
-  var evaluateAtLength;
+    return ret;
+  };
 
-  var getLength;
+  var evaluateAtLength = function( length, precision )
+  {
+    // Convert to a polyline and evaluate
+    return ( this.toPolyline( precision ) ).evaluateAtLength( length );
+  };
+
+  var getLength = function( precision )
+  {
+    // Convert to a polyline and measure polyline length
+    return ( this.toPolyline( precision ) ).getLength();
+  };
 
   var subdiv = function( precision, cp, removeRight )
   {
@@ -271,15 +363,63 @@ Akari.Animation.Bezier = function()
     }
   };
 
-  var toPolyline;
+  var toPolyline = function( precision )
+  {
+    if ( ! precision )
+    {
+      // Derive precision from coordinate range, assure 1/100 precision
+      var max = 0;
+      var min = Math.pow( 10, 309 );
 
-  var toSpline;
+      for ( var d = this.cp.length - 1; d >= 0; d -- )
+      {
+        for ( var i = this.cp[ d ].length - 1; i >= 0; i-- )
+        {
+          if ( this.cp[ d ][ i ] > max )
+          {
+            max = this.cp[ d ][ i ];
+          }
+          else if ( this.cp[ d ][ i ] < min )
+          {
+            min = this.cp[ d ][ i ];
+          }
+        }
+      }
+
+      precision = ( max - min ) / 100;
+    }
+
+    return Akari.Animation.Polyline( subdiv( precision, this.cp, false ) );
+  };
+ 
+  var toSpline = function()
+  {
+    return Akari.Animation.Spline( [ this ] );
+  };
 
   return function( points )
   {
+    // extract cp array for subdivision, evaluation and stuff
+    var cp = [];
+    var compo = [];
+
+    for ( var d = points[ 0 ].length - 1; d >= 0; d -- )
+    {
+      cp[ d ] = [];
+      for ( var i = points.length - 1; i >= 0; i -- )
+      {
+        cp[ d ].unshift( this.points[ i ][ d ] );
+      }
+
+      compo[ d ] = Akari.Animation.BezierComponent( cp[ d ] );
+    }
+
     return
     {
+      // Bezier
       points : points,
+      cp : cp,
+      components : compo,
       
       // Curve common
       dimension : points[ 0 ].length,
