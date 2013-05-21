@@ -76,34 +76,121 @@ Akari.Animation.BezierComponent = function()
  *
  * curves
  *  Array of Curves. Dimension is determined by the dimension of the first curve.
+ * precision
+ *  [default] undefined
+ *  Number. Overrides default precision determined by implentations of Curve.
  */
 Akari.Animation.Spline = function()
 {
-  var evaluateAt;
+  var evaluateAt = function( t )
+  {
+    return this.evaluateAtLength( this.length * t );
+  };
 
-  var evaluateAtLength;
+  var evaluateAtLength = function( length, precision )
+  {
+    // binary search for the corresponding segment
+    var start = 0;
+    var end = this.curves.length - 1;
+    var i = 0;
+    var loopFlag = false;
 
-  var getLength;
+    do
+    {
+      i = Math.floor( ( start + end ) / 2 );
 
-  var toPolyline;
+      if ( this.segmentsPosition[ i ] > length )
+      {
+        end = i;
+      }
+      else if ( this.segmentsPosition[ i + 1 ] < length )
+      {
+        start = i;
+      }
+      else
+      {
+        loopFlag = false;
+      }
 
-  var concat;
+    } while ( loopFlag );
 
-  var subSpline;
+    // call segment's evaluateAtLength
+    if ( precision )
+    {
+      return this.curves[ i ].evaluateAtLength( length - this.segmentsPosition[ i ], precision );
+    }
+    else
+    {
+      return this.segmentsPolyline[ i ].evaluateAtLength( length - this.segmentsPosition[ i ] );
+    }
+  };
+
+  var getLength = function()
+  {
+    return this.length;
+  };
+
+  var toPolyline = function( precision )
+  {
+    var newPoints = [];
+    if ( precision )
+    {
+      for ( var i = 0; i < this.curves.length - 1; i ++ )
+      {
+        newPoints = newPoints.concat( this.curves[ i ].toPolyline( precision ) );
+      }
+
+      return Akari.Animation.Polyline( newPoints );
+    }
+    else
+    {
+      // just concat stock points
+      for ( var i = 0; i < this.segmentsPolyline.length - 1; i ++ )
+      {
+        newPoints = newPoints.concat( this.segmentsPolyline.points );
+      }
+
+      return Akari.Animation.Polyline( newPoints );
+    }
+  };
+
+  var concat = function( other )
+  {
+    var newCurves = this.points.concat( other.curves );
+    return Akari.Animation.Spline( newCurves );
+  };
 
   var cloneSelf = function()
   {
     return Akari.Animation.Spline( this.curves );
   };
 
-  return function( curves )
+  return function( curves, precision )
   {
+    // calculate length of the spline
+    var segmentsLength = [];
+    var segmentsPosition = [];
+    var segmentsPolyline = [];
+    var length = 0;
+    var segLength = 0;
+    for ( var i = 0; i < curves.length - 1; i ++ )
+    {
+      segmentsPolyline.push( curves[ i ].toPolyline( precision ) );
+      segLength = segmentsPolyline[ i ].getLength();
+      segmentsPosition.push( length );
+      segmentsLength.push( segLength );
+      length += segLength;
+    }
+
     return
     {
       // Spline
       curves : curves,
       concat : concat,
-      subSpline : subSpline,
+      segmentsPolyline : segmentsPolyline,
+      segmentsLength : segmentsLength,
+      segmentsPosition : segmentsPosition,
+      length : length,
       
       // Curve common
       dimension : curves[ 0 ].dimension,
@@ -171,6 +258,12 @@ Akari.Animation.Polyline = function()
     return ret;
   };
 
+  var concat = function( other )
+  {
+    var newPoints = this.points.concat( other.points );
+    return Akari.Animation.Polyline( newPoints );
+  };
+
   var getLength = function()
   {
     return this.length;
@@ -215,6 +308,7 @@ Akari.Animation.Polyline = function()
       segmentsLength : segmentsLength,
       segmentsPosition : segmentsPosition,
       length : length,
+      concat : concat,
       
       // Curve common
       dimension : points[ 0 ].length,
@@ -389,7 +483,7 @@ Akari.Animation.Bezier = function()
       precision = ( max - min ) / 100;
     }
 
-    return Akari.Animation.Polyline( subdiv( precision, this.cp, false ) );
+    return Akari.Animation.Polyline( subdiv( precision, this.cp, false ) || [ this.points[ 0 ], this.points[ this.points.length - 1 ] ] );
   };
  
   var toSpline = function()
