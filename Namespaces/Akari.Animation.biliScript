@@ -6,6 +6,271 @@
  */
 
 Akari.Animation = {};
+
+/* Class: BezierComponent
+ * Represents one component of a bezier curve.
+ *
+ * cp
+ *  Array of numbers. Coordinates of control points of the component.
+ */
+Akari.Animation.BezierComponent = function()
+{
+  var calcBezier = function( t )
+  {
+    var a = [];
+    a[ 0 ] = this.cp;
+
+    for ( var jr = 1; jr < this.cp.length; jr ++ )
+    {
+      a[ jr ] = [];
+      for ( var ir = 0; ir < this.cp.length - jr; ir ++ )
+      {
+        a[ jr ][ ir ] = ( 1 - t ) * a[ jr - 1 ][ ir ] + t * a[ jr - 1 ][ ir + 1 ];
+      }
+    }
+
+    return a[ this.cp.length - 1 ][ 0 ];
+  };
+
+  var calcSlope = function( t )
+  {
+    var n = this.cp.length - 1;
+    var invT = 1 - t;
+
+    // A = ( 1 - t ) ^ ( n - i - 1 )
+    // B = t ^ ( i - 1 )
+    // C = ( n choose i )
+    // d/dt = P[ i ] * A * B * C * ( i - n * t )
+    var a = Math.pow( invT, n - 1 );
+    var b = 1 / t;
+    var c = 1;
+
+    var sum = this.cp[ 0 ] * a * b * c * ( - n * t );
+
+    for ( var i = 1; i <= n; i ++ )
+    {
+      // Update ABC values
+      a = a / invT;
+      b = b * t;
+      c = c * ( n - i + 1 ) / i;
+
+      sum += this.cp[ i ] * a * b * c * ( i - n * t );
+    }
+
+    return sum;
+  };
+
+  return function( cp )
+  {
+    return
+    {
+      cp : cp,
+      calcBezier : calcBezier,
+      calcSlope : calcSlope
+    };
+  };
+}();
+
+/* Class: Spline < Curve
+ * Represents one spline.
+ *
+ * curves
+ *  Array of Curves. Dimension is determined by the dimension of the first curve.
+ */
+Akari.Animation.Spline = function()
+{
+  var evaluateAt;
+
+  var evaluateAtLength;
+
+  var getLength;
+
+  var toPolyline;
+
+  var concat;
+
+  var subSpline;
+
+  var cloneSelf = function()
+  {
+    return Akari.Animation.Spline( this.curves );
+  };
+
+  return function( curves )
+  {
+    return
+    {
+      // Spline
+      curves : curves,
+      concat : concat,
+      subSpline : subSpline,
+      
+      // Curve common
+      dimension : curves[ 0 ].dimension,
+      evaluateAt : evaluateAt,
+      evaluateAtLength : evaluateAtLength,
+      getLength : getLength,
+      toPolyline : toPolyLine,
+      toSpline : cloneSelf
+    };
+  };
+}();
+
+/* Class: Polyline < Curve
+ * Represents one polyline.
+ *
+ * points
+ *  Array of Array<Number>s. Dimension is determined by the length of the first array.
+ */
+Akari.Animation.Polyline = function()
+{
+  var evaluateAt;
+
+  var evaluateAtLength;
+
+  var getLength;
+
+  var cloneSelf = function()
+  {
+    return Akari.Animation.Polyline( this.points );
+  };
+
+  return function( points )
+  {
+    return
+    {
+      points : points,
+      
+      // Curve common
+      dimension : points[ 0 ].length,
+      evaluateAt : evaluateAt,
+      evaluateAtLength : evaluateAtLength,
+      getLength : getLength,
+      toPolyline : cloneSelf,
+      toSpline : toSpline
+    };
+  };
+}();
+
+/* Class: Bezier < Curve
+ * Represents one bezier curve.
+ *
+ * points
+ *  Array of Array<Number>s. Dimension is determined by the length of the first array.
+ */
+Akari.Animation.Bezier = function()
+{
+  var evaluateAt;
+
+  var evaluateAtLength;
+
+  var getLength;
+
+  var subdiv = function( precision, cpS, cpD , removeRight )
+  {
+    // check if precision requirements are fulfilled
+    var sumDelta = 0;
+    var startS = cpS[ 0 ];
+    var stepS = ( cpS[ cpS.length - 1 ] - startS ) / ( cpS.length - 1 );
+    var startD = cpD[ 0 ];
+    var stepD = ( cpD[ cpD.length - 1 ] - startD ) / ( cpD.length - 1 );
+
+    for ( var i = cpS.length - 2; i >= 1; i -- )
+    {
+      sumDelta += Math.abs( cpS[ i ] - startS - stepS * i );
+      sumDelta += Math.abs( cpD[ i ] - startD - stepD * i );
+    }
+
+    if ( sumDelta <= precision )
+    {
+      // return null indicating end of subdivision, treat as line
+      return null;
+    }
+    else
+    {
+      // subdivide and create polyline
+      var leftSegmentS = [ cpS[ 0 ] ];
+      var leftSegmentD = [ cpD[ 0 ] ];
+      var rightSegmentS = [];
+      var rightSegmentD = [];
+
+      var polyS = cpS;
+      var polyD = cpD;
+
+      do 
+      {
+        var polyS2 = [];
+        var polyD2 = [];
+
+        for ( var i = 0; i < polyS.length - 1; i ++ )
+        {
+          polyS2.push( ( polyS[ i ] + polyS[ i + 1 ] ) / 2 );
+          polyD2.push( ( polyD[ i ] + polyD[ i + 1 ] ) / 2 );
+        }
+
+        leftSegmentS.push( polyS2[ 0 ] );
+        leftSegmentD.push( polyD2[ 0 ] );
+        rightSegmentS.push( polyS2[ polyS2.length - 1 ] );
+        rightSegmentD.push( polyD2[ polyD2.length - 1 ] );
+
+        polyS = polyS2;
+        polyD = polyD2;
+      } while ( polyS.length > 1 );
+
+      rightSegmentS.unshift( cpS[ cpS.length - 1 ] );
+      rightSegmentD.unshift( cpD[ cpD.length - 1 ] );
+
+      rightSegmentS.reverse();
+      rightSegmentD.reverse();
+
+      // compose resulting polyline from recursive calls
+      var leftPoly = subdiv( precision, leftSegmentS, leftSegmentD, true );
+      var rightPoly = subdiv( precision, rightSegmentS, rightSegmentD, removeRight );
+
+      if ( ! leftPoly )
+      {
+        leftPoly = [ [ leftSegmentS[ 0 ], leftSegmentD[ 0 ] ] ];
+      }
+
+      if ( rightPoly )
+      {
+        var retPoly = leftPoly.concat( rightPoly );
+        return retPoly;
+      }
+      else
+      {
+        leftPoly.push( [ rightSegmentS[ 0 ], rightSegmentD[ 0 ] ] );
+
+        if ( ! removeRight )
+        {
+          leftPoly.push( [ rightSegmentS[ rightSegmentS.length - 1 ], rightSegmentD[ rightSegmentD.length - 1 ] ] );
+        }
+
+        return leftPoly;
+      }
+    }
+  };
+
+  var toPolyline;
+
+  var toSpline;
+
+  return function( points )
+  {
+    return
+    {
+      points : points,
+      
+      // Curve common
+      dimension : points[ 0 ].length,
+      evaluateAt : evaluateAt,
+      evaluateAtLength : evaluateAtLength,
+      getLength : getLength,
+      toPolyline : toPolyline,
+      toSpline : toSpline
+    };
+  };
+}();
  
 /* Static Class: Interpolation
  * Provides functions for interpolating between numbers.
