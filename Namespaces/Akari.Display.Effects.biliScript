@@ -28,7 +28,6 @@ Akari.Display.Effects.TrackMatte = function( params )
   params.layer.source = canvas;
 
   layerCanvas.blendMode = "layer";
-  params.mask.source.blendMode = "alpha";
   
   // Simulate inheritance by making a backup of update function.
   var baseUpdate = Akari.Utilities.Factory.clone( params.layer.update, params.layer );
@@ -38,6 +37,7 @@ Akari.Display.Effects.TrackMatte = function( params )
     baseUpdate( time );
     params.mask.update( time );
 
+    params.mask.source.blendMode = "alpha";
     canvas.blendMode = params.layer.source.blendMode;
   };
   
