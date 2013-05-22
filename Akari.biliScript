@@ -1216,7 +1216,7 @@ Akari.Animation.Spline = function()
     var start = 0;
     var end = this.curves.length - 1;
     var i = 0;
-    var loopFlag = false;
+    var loopFlag = true;
 
     do
     {
@@ -1228,7 +1228,15 @@ Akari.Animation.Spline = function()
       }
       else if ( this.segmentsPosition[ i + 1 ] < length )
       {
-        start = i;
+        if ( i === end - 1 )
+        {
+          i ++;
+          loopFlag = false;
+        }
+        else
+        {
+          start = i;
+        }
       }
       else
       {
@@ -1258,7 +1266,7 @@ Akari.Animation.Spline = function()
     var newPoints = [];
     if ( precision )
     {
-      for ( var i = 0; i < this.curves.length - 1; i ++ )
+      for ( var i = 0; i < this.curves.length; i ++ )
       {
         newPoints = newPoints.concat( this.curves[ i ].toPolyline( precision ) );
       }
@@ -1268,9 +1276,9 @@ Akari.Animation.Spline = function()
     else
     {
       // just concat stock points
-      for ( var i = 0; i < this.segmentsPolyline.length - 1; i ++ )
+      for ( var i = 0; i < this.segmentsPolyline.length; i ++ )
       {
-        newPoints = newPoints.concat( this.segmentsPolyline.points );
+        newPoints = newPoints.concat( this.segmentsPolyline[ i ].points );
       }
 
       return Akari.Animation.Polyline( newPoints );
@@ -1296,7 +1304,7 @@ Akari.Animation.Spline = function()
     var segmentsPolyline = [];
     var length = 0;
     var segLength = 0;
-    for ( var i = 0; i < curves.length - 1; i ++ )
+    for ( var i = 0; i < curves.length; i ++ )
     {
       segmentsPolyline.push( curves[ i ].toPolyline( precision ) );
       segLength = segmentsPolyline[ i ].getLength();
@@ -1320,7 +1328,7 @@ Akari.Animation.Spline = function()
       evaluateAt : evaluateAt,
       evaluateAtLength : evaluateAtLength,
       getLength : getLength,
-      toPolyline : toPolyLine,
+      toPolyline : toPolyline,
       toSpline : cloneSelf
     };
   };
@@ -1346,7 +1354,7 @@ Akari.Animation.Polyline = function()
     var start = 0;
     var end = this.points.length - 1;
     var i = 0;
-    var loopFlag = false;
+    var loopFlag = true;
 
     do
     {
@@ -1358,7 +1366,15 @@ Akari.Animation.Polyline = function()
       }
       else if ( this.segmentsPosition[ i + 1 ] < length )
       {
-        start = i;
+        if ( i === end - 1 )
+        {
+          i ++;
+          loopFlag = false;
+        }
+        else
+        {
+          start = i;
+        }
       }
       else
       {
@@ -1424,7 +1440,6 @@ Akari.Animation.Polyline = function()
       segmentsLength.push( segLength );
       length += segLength;
     }
-
     return
     {
       points : points,
@@ -1625,7 +1640,7 @@ Akari.Animation.Bezier = function()
       cp[ d ] = [];
       for ( var i = points.length - 1; i >= 0; i -- )
       {
-        cp[ d ].unshift( this.points[ i ][ d ] );
+        cp[ d ].unshift( points[ i ][ d ] );
       }
 
       compo[ d ] = Akari.Animation.BezierComponent( cp[ d ] );
