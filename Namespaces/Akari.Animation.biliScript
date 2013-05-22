@@ -89,38 +89,52 @@ Akari.Animation.Spline = function()
 
   var evaluateAtLength = function( length, precision )
   {
-    // binary search for the corresponding segment
-    var start = 0;
-    var end = this.curves.length - 1;
     var i = 0;
-    var loopFlag = true;
 
-    do
+    if ( length < 0 )
     {
-      i = Math.floor( ( start + end ) / 2 );
+      length = 0;
+      i = 0;
+    }
+    else if ( length > this.length )
+    {
+      length = this.length;
+      i = this.curves.length - 1;
+    }
+    else
+    {
+      // binary search for the corresponding segment
+      var start = 0;
+      var end = this.curves.length - 1;
+      var loopFlag = true;
 
-      if ( this.segmentsPosition[ i ] > length )
+      do
       {
-        end = i;
-      }
-      else if ( this.segmentsPosition[ i + 1 ] < length )
-      {
-        if ( i === end - 1 )
+        i = Math.floor( ( start + end ) / 2 );
+
+        if ( this.segmentsPosition[ i ] > length )
         {
-          i ++;
-          loopFlag = false;
+          end = i;
+        }
+        else if ( this.segmentsPosition[ i + 1 ] < length )
+        {
+          if ( i === end - 1 )
+          {
+            i ++;
+            loopFlag = false;
+          }
+          else
+          {
+            start = i;
+          }
         }
         else
         {
-          start = i;
+          loopFlag = false;
         }
-      }
-      else
-      {
-        loopFlag = false;
-      }
 
-    } while ( loopFlag );
+      } while ( loopFlag );
+    }
 
     // call segment's evaluateAtLength
     if ( precision )
@@ -227,39 +241,53 @@ Akari.Animation.Polyline = function()
 
   var evaluateAtLength = function( length )
   {
-    // binary search for the corresponding segment
-    var start = 0;
-    var end = this.points.length - 1;
     var i = 0;
-    var loopFlag = true;
 
-    do
+    if ( length < 0 )
     {
-      i = Math.floor( ( start + end ) / 2 );
+      length = 0;
+      i = 0;
+    }
+    else if ( length > this.length )
+    {
+      length = this.length;
+      i = this.points.length - 2;
+    }
+    else
+    {
+      // binary search for the corresponding segment
+      var start = 0;
+      var end = this.points.length - 2;
+      var loopFlag = true;
 
-      if ( this.segmentsPosition[ i ] > length )
+      do
       {
-        end = i;
-      }
-      else if ( this.segmentsPosition[ i + 1 ] < length )
-      {
-        if ( i === end - 1 )
+        i = Math.floor( ( start + end ) / 2 );
+
+        if ( this.segmentsPosition[ i ] > length )
         {
-          i ++;
-          loopFlag = false;
+          end = i;
+        }
+        else if ( this.segmentsPosition[ i + 1 ] < length )
+        {
+          if ( i === end - 1 )
+          {
+            i ++;
+            loopFlag = false;
+          }
+          else
+          {
+            start = i;
+          }
         }
         else
         {
-          start = i;
+          loopFlag = false;
         }
-      }
-      else
-      {
-        loopFlag = false;
-      }
 
-    } while ( loopFlag );
-
+      } while ( loopFlag );
+    }
+    
     // interpolate
     var p1 = this.points[ i ];
     var p2 = this.points[ i + 1 ];

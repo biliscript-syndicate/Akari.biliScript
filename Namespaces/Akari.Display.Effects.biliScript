@@ -40,15 +40,15 @@ Akari.Display.Effects.TrackMatte = function( params )
  * layers
  *   The Layers to use.
  * exposureTime
- *   [default] 8.3333
- *   Exposure time (in milliseconds). Defaults to 1000/120 (double the Player frame rate).
+ *   [default] 20.8333333
+ *   Exposure time (in milliseconds). Defaults to 1000/48 (double the Player frame rate).
  * shutterPhase
  *   [default] -90
  *   Shutter phase in degrees.
  */
 Akari.Display.Effects.ForceMotionBlur = function( params )
 {
-  if ( !params.exposureTime ) params.exposureTime = 1000.0 / 120.0;
+  if ( !params.exposureTime ) params.exposureTime = 1000.0 / 48.0;
   var shutterOffset = params.exposureTime * ( params.shutterPhase || -90.0 ) / 180.0;
   
   var canvas = Akari.Display.Sprite();
@@ -93,18 +93,13 @@ Akari.Display.Effects.ForceMotionBlur = function( params )
     // Update original layer to get binding work
     original.update( time );
     baseUpdate( time );
-    
-    var offset = 0;
-    foreach ( subLayers, function( key, object )
+
+    for ( var ir = subLayers.length - 1; ir >= 0; ir -- )
     {
-      object.update( time + params.exposureTime * offset / subLayers.length + shutterOffset );
-      
-      // Manually set alpha and blendMode in case of bindings
-      object.source.alpha = subAlphas[ offset ];
-      object.source.blendMode = "add";
-      
-      offset ++;
-    });
+      subLayers[ ir ].update( time + params.exposureTime * ir / subLayers.length + shutterOffset );
+      subLayers[ ir ].source.alpha = subAlphas[ ir ];
+      subLayers[ ir ].source.blendMode = "add";
+    }
   };
   
   return layer;

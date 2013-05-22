@@ -1,0 +1,102 @@
+/* Sample: CurveTracing
+ * Demonstrates usage of the spline feature for animating.
+ *
+ * The sample serves as a test.
+ */
+
+// Fetch a global reference for Akari
+var Akari = Global._get( "__akari" );
+
+
+// Import namespaces by extending this closure
+Akari.Utilities.Factory.extend( this, Akari.Utilities );
+Factory.extend( this, Akari.Display );
+Factory.extend( this, Akari.Animation );
+
+var spline = Spline(
+[
+  Bezier([ [ 1000, 100 ], [ 800, 1000 ], [ 600, 0 ], [ 400, 500 ], [ 350, 50 ], [ 150, 100 ], [ 100, 100 ] ]),
+  Bezier([ [ 100, 100 ], [ 800, 620 ], [ 800, 100 ], [ 100, 620 ] ]),
+  Bezier([ [ 100, 620 ], [ 150, 620 ], [ 350, 670 ], [ 400, 220 ], [ 600, 720 ], [ 800, -280 ], [ 1000, 620 ] ])
+]);
+
+var pll = spline.toPolyline();
+
+var mainComp = MainComposition(
+{
+  width : 1280,
+  height : 720,
+  
+  layers : 
+  [
+    // Spline reference
+    Layer(
+    {
+      source : function()
+      {
+        var shp = Shape();
+
+        var result = ( spline.toPolyline() ).points;
+
+        shp.graphics.lineStyle( 1, 0xFFFF00 );
+        shp.graphics.moveTo( result[ 0 ][ 0 ], result[ 0 ][ 1 ] );
+        for ( var i = 1; i < result.length; i ++ )
+        {
+          shp.graphics.lineTo( result[ i ][ 0 ], result[ i ][ 1 ] );
+        }
+
+        return shp;
+      }()
+    }),
+    Effects.ForceMotionBlur(
+    {
+      layers : Factory.replicate( Layer, 16, function() {
+        return [
+        {
+          source : Anchor({ source : Solid({ width : 100, height : 100, color : 0xFFFFFF }) }),
+
+          properties :
+          {
+            position : CurveTrace(
+            {
+              curve : spline,
+              animation : KeyframesBind(
+              {
+                keyframes :
+                [
+                  Keyframe({ time : 0, value : 0, interpolation : Interpolation.cubic.easeOut }),
+                  Keyframe({ time : 2000, value : 1, interpolation : Interpolation.cubic.easeIn }),
+                  Keyframe({ time : 4000, value : 0 })
+                ],
+                
+                // This mode repeats the keyframes automatically
+                mode : KeyframesBindMode.repeat
+              }),
+              mode : "lengthProportion"
+            }),
+
+            x : Binder.Link(
+            {
+              name : "position",
+              linkFunc : function( v )
+              {
+                return v[ 0 ];
+              }
+            }),
+
+            y : Binder.Link(
+            {
+              name : "position",
+              linkFunc : function( v )
+              {
+                return v[ 1 ];
+              }
+            })
+          }
+        }];
+      } )
+    })
+  ]
+});
+
+Akari.execute( mainComp );

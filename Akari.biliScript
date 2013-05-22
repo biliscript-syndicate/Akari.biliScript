@@ -1,4 +1,4 @@
-/* Akari.biliScript - v20130521
+/* Akari.biliScript - v20130522
  * Copyright (C) 2013 EPM
  * <https://github.com/akaza-akari/Akari.biliScript>
  *
@@ -1212,38 +1212,52 @@ Akari.Animation.Spline = function()
 
   var evaluateAtLength = function( length, precision )
   {
-    // binary search for the corresponding segment
-    var start = 0;
-    var end = this.curves.length - 1;
     var i = 0;
-    var loopFlag = true;
 
-    do
+    if ( length < 0 )
     {
-      i = Math.floor( ( start + end ) / 2 );
+      length = 0;
+      i = 0;
+    }
+    else if ( length > this.length )
+    {
+      length = this.length;
+      i = this.curves.length - 1;
+    }
+    else
+    {
+      // binary search for the corresponding segment
+      var start = 0;
+      var end = this.curves.length - 1;
+      var loopFlag = true;
 
-      if ( this.segmentsPosition[ i ] > length )
+      do
       {
-        end = i;
-      }
-      else if ( this.segmentsPosition[ i + 1 ] < length )
-      {
-        if ( i === end - 1 )
+        i = Math.floor( ( start + end ) / 2 );
+
+        if ( this.segmentsPosition[ i ] > length )
         {
-          i ++;
-          loopFlag = false;
+          end = i;
+        }
+        else if ( this.segmentsPosition[ i + 1 ] < length )
+        {
+          if ( i === end - 1 )
+          {
+            i ++;
+            loopFlag = false;
+          }
+          else
+          {
+            start = i;
+          }
         }
         else
         {
-          start = i;
+          loopFlag = false;
         }
-      }
-      else
-      {
-        loopFlag = false;
-      }
 
-    } while ( loopFlag );
+      } while ( loopFlag );
+    }
 
     // call segment's evaluateAtLength
     if ( precision )
@@ -1350,39 +1364,53 @@ Akari.Animation.Polyline = function()
 
   var evaluateAtLength = function( length )
   {
-    // binary search for the corresponding segment
-    var start = 0;
-    var end = this.points.length - 1;
     var i = 0;
-    var loopFlag = true;
 
-    do
+    if ( length < 0 )
     {
-      i = Math.floor( ( start + end ) / 2 );
+      length = 0;
+      i = 0;
+    }
+    else if ( length > this.length )
+    {
+      length = this.length;
+      i = this.points.length - 2;
+    }
+    else
+    {
+      // binary search for the corresponding segment
+      var start = 0;
+      var end = this.points.length - 2;
+      var loopFlag = true;
 
-      if ( this.segmentsPosition[ i ] > length )
+      do
       {
-        end = i;
-      }
-      else if ( this.segmentsPosition[ i + 1 ] < length )
-      {
-        if ( i === end - 1 )
+        i = Math.floor( ( start + end ) / 2 );
+
+        if ( this.segmentsPosition[ i ] > length )
         {
-          i ++;
-          loopFlag = false;
+          end = i;
+        }
+        else if ( this.segmentsPosition[ i + 1 ] < length )
+        {
+          if ( i === end - 1 )
+          {
+            i ++;
+            loopFlag = false;
+          }
+          else
+          {
+            start = i;
+          }
         }
         else
         {
-          start = i;
+          loopFlag = false;
         }
-      }
-      else
-      {
-        loopFlag = false;
-      }
 
-    } while ( loopFlag );
-
+      } while ( loopFlag );
+    }
+    
     // interpolate
     var p1 = this.points[ i ];
     var p2 = this.points[ i + 1 ];
@@ -1440,6 +1468,7 @@ Akari.Animation.Polyline = function()
       segmentsLength.push( segLength );
       length += segLength;
     }
+
     return
     {
       points : points,
@@ -2845,15 +2874,15 @@ Akari.Display.Effects.TrackMatte = function( params )
  * layers
  *   The Layers to use.
  * exposureTime
- *   [default] 8.3333
- *   Exposure time (in milliseconds). Defaults to 1000/120 (double the Player frame rate).
+ *   [default] 20.8333333
+ *   Exposure time (in milliseconds). Defaults to 1000/48 (double the Player frame rate).
  * shutterPhase
  *   [default] -90
  *   Shutter phase in degrees.
  */
 Akari.Display.Effects.ForceMotionBlur = function( params )
 {
-  if ( !params.exposureTime ) params.exposureTime = 1000.0 / 120.0;
+  if ( !params.exposureTime ) params.exposureTime = 1000.0 / 48.0;
   var shutterOffset = params.exposureTime * ( params.shutterPhase || -90.0 ) / 180.0;
   
   var canvas = Akari.Display.Sprite();
@@ -2898,18 +2927,13 @@ Akari.Display.Effects.ForceMotionBlur = function( params )
     // Update original layer to get binding work
     original.update( time );
     baseUpdate( time );
-    
-    var offset = 0;
-    foreach ( subLayers, function( key, object )
+
+    for ( var ir = subLayers.length - 1; ir >= 0; ir -- )
     {
-      object.update( time + params.exposureTime * offset / subLayers.length + shutterOffset );
-      
-      // Manually set alpha and blendMode in case of bindings
-      object.source.alpha = subAlphas[ offset ];
-      object.source.blendMode = "add";
-      
-      offset ++;
-    });
+      subLayers[ ir ].update( time + params.exposureTime * ir / subLayers.length + shutterOffset );
+      subLayers[ ir ].source.alpha = subAlphas[ ir ];
+      subLayers[ ir ].source.blendMode = "add";
+    }
   };
   
   return layer;
