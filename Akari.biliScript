@@ -312,6 +312,7 @@ Akari.Utilities.Binder = function()
   var binderClass = function( params )
   {
     var needBinding = {};
+    var linkRegister = {};
     
     var pathCheck = function( object, name )
     {
@@ -372,7 +373,11 @@ Akari.Utilities.Binder = function()
           {
             setBinding( key, function( time )
             {
-              var value = params.properties[ obj.name.toString() ].apply( this, [ time ] );
+              if ( ! linkRegister.hasOwnProperty( obj.name.toString() ) )
+              {
+                linkRegister[ obj.name.toString() ] = params.properties[ obj.name.toString() ].apply( this, [ time ] );
+              }
+              var value = linkRegister[ obj.name.toString() ];
               return obj.linkFunc.apply( this, [ value, time ] );
             });
           }
@@ -421,6 +426,7 @@ Akari.Utilities.Binder = function()
        */
       update : function( time, scope )
       {
+        linkRegister = {};
         foreach( needBinding, function( key, obj )
         {
           setParam( params.object, key, obj.apply( scope || params.object, [ time ] ) );
@@ -2852,9 +2858,17 @@ Akari.Display.Effects = {};
  */
 Akari.Display.Effects.TrackMatte = function( params )
 {
-  // Add mask layer to display list and apply mask
-  params.layer.source.addChild( params.mask.source );
-  params.layer.source.mask = params.mask.source;
+  // Replace original source with double canvas that contains both display objects,
+  // which will be added to the Composition instead.
+  var canvas = Akari.Display.Sprite();
+  var layerCanvas = Akari.Display.Sprite();
+  layerCanvas.addChild( params.layer.source );
+  layerCanvas.addChild( params.mask.source );
+  canvas.addChild( layerCanvas );
+  params.layer.source = canvas;
+
+  layerCanvas.blendMode = "layer";
+  params.mask.source.blendMode = "alpha";
   
   // Simulate inheritance by making a backup of update function.
   var baseUpdate = Akari.Utilities.Factory.clone( params.layer.update, params.layer );
@@ -2863,6 +2877,8 @@ Akari.Display.Effects.TrackMatte = function( params )
   {
     baseUpdate( time );
     params.mask.update( time );
+
+    canvas.blendMode = params.layer.source.blendMode;
   };
   
   return params.layer;
@@ -2885,7 +2901,9 @@ Akari.Display.Effects.ForceMotionBlur = function( params )
   if ( !params.exposureTime ) params.exposureTime = 1000.0 / 48.0;
   var shutterOffset = params.exposureTime * ( params.shutterPhase || -90.0 ) / 180.0;
   
+  // Use double canvas since to preserve blend mode, the return from adding must be contained by a Sprite with blendMode "layer"
   var canvas = Akari.Display.Sprite();
+  var layerCanvas = Akari.Display.Sprite();
   
   // An invisible layer for preserving alpha and blend
   var original = params.layers.shift();
@@ -2897,13 +2915,16 @@ Akari.Display.Effects.ForceMotionBlur = function( params )
   var i = 0;
   for ( i = 0; i < subLayers.length; i++ )
   {
-    canvas.addChild( subLayers[ i ].source );
+    layerCanvas.addChild( subLayers[ i ].source );
     
     var idealTotalAlpha = Math.ceil( 256 * ( i + 1 ) / subLayers.length );
     var subAlpha = idealTotalAlpha - totalAlphaYet;
     subAlphas.push( ( subAlpha + 1 ) / 256 );
     totalAlphaYet += subAlpha;
   }
+
+  layerCanvas.blendMode = "layer";
+  canvas.addChild( layerCanvas );
   
   // Create a new layer, binding alpha and blendMode with original layer
   var layer = Akari.Display.Layer(

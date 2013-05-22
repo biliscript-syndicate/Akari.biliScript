@@ -212,6 +212,7 @@ Akari.Utilities.Binder = function()
   var binderClass = function( params )
   {
     var needBinding = {};
+    var linkRegister = {};
     
     var pathCheck = function( object, name )
     {
@@ -272,7 +273,11 @@ Akari.Utilities.Binder = function()
           {
             setBinding( key, function( time )
             {
-              var value = params.properties[ obj.name.toString() ].apply( this, [ time ] );
+              if ( ! linkRegister.hasOwnProperty( obj.name.toString() ) )
+              {
+                linkRegister[ obj.name.toString() ] = params.properties[ obj.name.toString() ].apply( this, [ time ] );
+              }
+              var value = linkRegister[ obj.name.toString() ];
               return obj.linkFunc.apply( this, [ value, time ] );
             });
           }
@@ -321,6 +326,7 @@ Akari.Utilities.Binder = function()
        */
       update : function( time, scope )
       {
+        linkRegister = {};
         foreach( needBinding, function( key, obj )
         {
           setParam( params.object, key, obj.apply( scope || params.object, [ time ] ) );
