@@ -1,5 +1,5 @@
-/* Akari.biliScript - v20130522
- * Copyright (C) 2013 EPM
+﻿/* Akari.biliScript - v20130610
+ * Copyright (C) 2013 
  * <https://github.com/akaza-akari/Akari.biliScript>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -50,9 +50,12 @@ Akari.execute = function( mainComp )
  */
 Akari.stop = function()
 {
-  ( Global._get("__mainComp_akari") ).detach();
-  Global._set( "__mainComp_akari", null );
-  Global._set( "__isExecuted_akari", null );
+  if ( Akari.isExecuted() )
+  {
+    ( Global._get("__mainComp_akari") ).detach();
+    Global._set( "__mainComp_akari", null );
+    Global._set( "__isExecuted_akari", null );
+  }
 };
 
 /* Function: isExecuted
@@ -76,18 +79,7 @@ Akari.root = function()
   {
     var sprite = $.createCanvas(
     {
-      lifeTime : 810114514,
-      motionGroup : [
-        {
-          fontSize :
-          {
-            fromValue : "Ҫ������",
-            toValue : "�ж�����",
-            lifeTime : 810114514,
-            startDelay : 810114514
-          }
-        }
-      ]
+      lifeTime : 810114514
     });
 
     spriteManager.popEl( sprite );
@@ -472,661 +464,6 @@ Akari.Utilities.Binder = function()
   
   return binderClass;
 }();
-
-
-
-/* Namespace: Akari.Display
- * This sort of classes are abstractions of display objects for use in production.
- */
-
-Akari.Display = {};
- 
-/* Class: Layer
- * Provides functions for animating contents.
- *
- * source
- *   A DisplayObject serving as the layer source.
- * inPoint
- *   A Number, the time (in milliseconds) at which the layers enters.
- * outPoint
- *   A Number, the time (in milliseconds) at which the layers exits.
- * properties
- *   [default] {}
- *   An Object, containing values or Bindings for each AS3 property.
- */
-Akari.Display.Layer = function( params )
-{
-  // Create a private binder for properties
-  var binder = Akari.Utilities.Binder({ object : params.source, properties : params.properties || {} });
-  
-  var layer =
-  {
-    source : params.source,
-    inPoint : params.inPoint,
-    outPoint : params.outPoint,
-    
-    /* Function: update
-     * Updates the layer to fit the timeline.
-     *
-     * time
-     *   A Number, the current time (in milliseconds) on the Composition's timeline.
-     */
-    update : function( time )
-    {
-      if ( time < params.inPoint || time >= params.outPoint )
-      {
-        this.source.visible = false;
-      }
-      else
-      {
-        // Set source visible first, so that it can be overridden by binder.
-        this.source.visible = true;
-        
-        binder.update( time, this.getBinderScope() );
-      }
-    },
-    
-    /* Function: getBinderScope
-     * Dynamically return self for use as scope in Binders.
-     */
-    getBinderScope : function()
-    {
-      return this;
-    },
-    
-    /* Function: clone
-     * Custom clone function for binder to work.
-     */
-    clone : function()
-    {
-      return Akari.Display.Layer( Akari.Utilities.Factory.clone( params ) );
-    }
-  };
-  
-  // Update Layer for a first time to prevent flashing
-  layer.update( params.inPoint );
-  
-  return layer;
-};
-
-/* Class: DynamicSourceLayer
- * A type of layer specialized to handle dynamic layer sources.
- *
- * provider
- *   A DynamicLayerSourceProvider.
- * inPoint
- *   A Number, the time (in milliseconds) at which the layers enters.
- * outPoint
- *   A Number, the time (in milliseconds) at which the layers exits.
- * inPointTime
- *   [default] provider.startTime
- *   A Number, the time (in milliseconds) the DynamicLayerSourceProvider is at when the layers enters.
- * outPointTime
- *   [default] provider.startTime + provider.duration
- *   A Number, the time (in milliseconds) the DynamicLayerSourceProvider is at when the layers exits.
- * timeRemap
- *   [default] null
- *   A Function or null, depending on whether you need time remapping. Setting this function overrides inPointTime and outPointTime settings.
- *   The function should accept a parameter time (in milliseconds) the current time.
- * properties
- *   [default] {}
- *   An Object, containing values or Bindings for each AS3 property.
- */
-Akari.Display.DynamicSourceLayer = function( params )
-{
-  var nestedProvider = params.provider;
-  var inPointTime = params.inPointTime || nestedProvider.startTime;
-  var outPointTime = params.outPointTime || nestedProvider.startTime + nestedProvider.duration;
-  
-  // Create a Layer.
-  var layer = Akari.Display.Layer(
-  {
-    source : nestedProvider.canvas,
-    inPoint : params.inPoint,
-    outPoint : params.outPoint,
-    properties : params.properties
-  });
-  
-  // Simulate inheritance by making a backup of update function.
-  var baseUpdate = Akari.Utilities.Factory.clone( layer.update, layer );
-  
-  // Declare new update regarding nested DynamicLayerSourceProvider timeline.
-  // Declare different functions according to having timeRemap or not to improve performance.
-  if ( params.timeRemap )
-  {
-    layer.update = function( time )
-    {
-      baseUpdate( time );
-      
-      if ( this.source.visible )
-        nestedProvider.update( params.timeRemap( time ) );
-    };
-  }
-  else
-  {
-    layer.update = function( time )
-    {
-      baseUpdate( time );
-      
-      if ( this.source.visible )
-        nestedProvider.update( inPointTime + ( time - params.inPoint ) * (outPointTime - inPointTime) / ( params.outPoint - params.inPoint) );
-    };
-  }
-    
-  /* Function: clone
-   * Custom clone function for binder to work.
-   */
-  layer.clone = function()
-  {
-    return Akari.Display.DynamicSourceLayer( Akari.Utilities.Factory.clone( params ) );
-  };
-  
-  // Update Layer for a first time to prevent flashing
-  layer.update( params.inPoint );
-  
-  return layer;
-};
-
-/* Class: Composition
- * A DynamicLayerSourceProvider that provides functions as the framework of a scene.
- *
- * width
- *   [default] $.width
- *   A Number specifying stage width.
- * height
- *   [default] $.height
- *   A Number specifying stage height.
- * startTime
- *   [default] 0
- *   A Number, the time (in milliseconds) when the timeline starts.
- * duration
- *   [default] 60000
- *   A Number, the length (in milliseconds) of the timeline.
- * layers
- *   [default] []
- *   An Array of Layers, from top to bottom.
- * hasBoundaries
- *   [default] false
- *   Whether a mask will be put on the canvas so that elements outside become invisible.
- */
-Akari.Display.Composition = function( params )
-{
-  var canvas = Akari.Display.Sprite();
-  if ( params.hasBoundaries )
-  {
-    var solidMask = Akari.Display.Solid({ width : params.width || $.width, height : params.height || $.height, color : 0x0 });
-    canvas.addChild( solidMask );
-    canvas.mask = solidMask;
-  }
-  
-  var layers = Akari.Utilities.Factory.collapse( params.layers || [] );
-  var i = 0;
-  
-  for ( i = 0; i < layers.length; i ++ )
-  {
-    canvas.addChild( layers[ i ].source );
-  }
-  
-  return
-  {
-    width : params.width || $.width,
-    height : params.height || $.height,
-    startTime : params.startTime || 0,
-    duration : params.duration || 60000,
-    layers : layers,
-    canvas : canvas,
-    
-    /* Function: update
-     * Updates the canvas to fit the timeline.
-     *
-     * time
-     *   A Number, the current time (in milliseconds) on the Composition's own timeline.
-     */
-    update : function( time )
-    {
-      // Check if Composition is active, otherwise update for borderline situations.
-      if ( time < startTime )
-        return this.update( startTime );
-      if ( time >= startTime + duration )
-        return this.update( startTime + duration - 1 );
-      
-      foreach( this.layers, function( key, object )
-      {
-        if ( !object.parent ) object.parent = this;
-        object.update( time );
-      });
-    },
-    
-    /* Function: clone
-     * Custom clone function to ensure masking work.
-     */
-    clone : function()
-    {
-      return Akari.Display.Composition( Akari.Utilities.Factory.clone( params ) );
-    }
-  };
-};
-
-/* Class: MainComposition
- * Provides functions as the framework of the comment art. Only MainCompositions have ability to be presented.
- *
- * width
- *   [default] $.width
- *   A Number specifying stage width.
- * height
- *   [default] $.height
- *   A Number specifying stage height.
- * startTime
- *   [default] 0
- *   A Number, the time (in milliseconds) when the timeline starts.
- * duration
- *   [default] 60000
- *   A Number, the length (in milliseconds) of the timeline.
- * layers
- *   [default] []
- *   An Array of Layers, from top to bottom.
- * hasBoundaries
- *   [default] true
- *   Whether a mask will be put on the canvas so that elements outside become invisible.
- */
-Akari.Display.MainComposition = function( params )
-{
-  if (!( params.hasBoundaries === false ))
-  {
-    params.hasBoundaries = true;
-  }
-  
-  var composition = Akari.Display.Composition( params );
-  
-  // Remember when did the comp last update to maintain seekability.
-  var lastUpdate = -1;
-  
-  // Remember the player size to maintain scalability
-  var lastWidth, lastHeight;
-  
-  // Prepare the frame function, need a private handle for removing.
-  var frameFunction = function()
-  {
-    // Check if player is running
-    if ( Player.state === "playing" )
-    {        
-      Akari.Utilities.Timer.update();
-      
-      composition.update( Akari.Utilities.Timer.time );
-    }
-    else
-    {
-      // When player is not running, check last update time to ensure seekability.
-      if ( lastUpdate != Player.time )
-        composition.update( Player.time );
-    }
-    
-    // Check if player size changed
-    // I dislike polling but can't find a event to listen for this. Need suggestion
-    if ( $.width != lastWidth || $.height != lastHeight )
-    {
-      maximizeInContainer();
-      
-      lastWidth = $.width;
-      lastHeight = $.height;
-    }
-  };
-  
-  var maximizeInContainer = function()
-  {
-    ratio = Math.min( $.width / Akari.root.scaleX / composition.width, $.height / Akari.root.scaleY / composition.height );
-    composition.canvas.scaleX = ratio;
-    composition.canvas.scaleY = ratio;
-    
-    composition.canvas.x = ( $.width / Akari.root.scaleX - composition.width * ratio ) / 2;
-    composition.canvas.y = ( $.height / Akari.root.scaleY - composition.height * ratio ) / 2;
-  };
-  
-  // Declare new update for update time stuff
-  var baseUpdate = Akari.Utilities.Factory.clone( composition.update, composition );
-  
-  composition.update = function( time )
-  {
-    lastUpdate = time;
-    baseUpdate( time );
-  };
-
-  /* Function: present
-   * Presents the composition immediately. Only one Composition can be presented at a time.
-   */
-  composition.present = function()
-  {
-    this.canvas.addEventListener( "enterFrame", frameFunction );
-    
-    Akari.root.addChild( this.canvas );
-    
-    frameFunction();
-  };
-    
-  /* Function: detach
-   * Detaches the composition from player.
-   */
-  composition.detach = function()
-  {
-    this.canvas.removeEventListener( "enterFrame", frameFunction );
-    
-    Akari.root.removeChild( this.canvas );
-  };
-    
-  /* Function: clone
-   * Custom clone function for binder to work.
-   */
-  composition.clone = function()
-  {
-    return Akari.Display.MainComposition( Akari.Utilities.Factory.clone( params ) );
-  };
-  
-  // Return Composition
-  return composition;
-};
-
-/* Static Function: getInstance
- * Read the global variable. Only avaiable after one has been presented.
- */
-Akari.Display.MainComposition.getInstance = function()
-{
-  return Global._get("__mainComp_akari");
-};
-
-/* Class: Animation
- * A DynamicLayerSourceProvider with primitive stop motion animation support.
- *
- * frames
- *   An Array of functions with signature function( graphics ){ }.
- * frameRate
- *   [default] 12
- *   The rate at which the animation is played.
- *   Setting a rate much too high while having a complex scene can probably cause performance problems.
- */
-Akari.Display.Animation = function( params )
-{
-  var lastFrame = 0;
-  var frameRate = params.frameRate || 12;
-  
-  // Function for getting the current frame
-  var findCurrentIndex = function( time )
-  {
-    return Math.floor( time * frameRate / 1000 );
-  };
-  
-  var canvas = Akari.Display.Shape();
-  
-  return
-  {
-    startTime : 0,
-    duration : params.frames.length * 1000 / frameRate,
-    canvas : canvas,
-    
-    /* Function: update
-     * Updates the canvas to fit the timeline.
-     *
-     * time
-     *   A Number, the current time (in milliseconds) on the Animation's own timeline.
-     */
-    update : function( time )
-    {
-      // Check if an update is needed
-      var currentFrame = findCurrentIndex( time );
-      if ( currentFrame === lastFrame ) return;
-      
-      canvas.graphics.clear();
-      params.frames[ currentFrame ]( canvas.graphics );
-      
-      lastFrame = currentFrame;
-    },
-    
-    /* Function: clone
-     * Custom clone function for canvas and such.
-     */
-    clone : function()
-    {
-      return Akari.Display.Animation( Akari.Utilities.Factory.clone( params ) );
-    }
-  };
-};
-
-/* Class: Sprite
- * Shortcut for AS3 Sprite.
- */
-Akari.Display.Sprite = function()
-{
-  var sprite = $.createCanvas(
-  {
-    lifeTime : 810114514,
-    motionGroup : [
-      {
-        fontSize :
-        {
-          fromValue : "ʮ������",
-          toValue : "ӹ����Ȥ",
-          lifeTime : 810114514,
-          startDelay : 810114514
-        }
-      }
-    ]
-  });
-  
-  ScriptManager.popEl( sprite );
-  
-  // remove 3D to make it clear by default
-  sprite.transform.matrix3D = null;
-  
-  return sprite;
-};
-
-/* Class: Shape
- * Shortcut for AS3 Shape.
- */
-Akari.Display.Shape = function()
-{
-  var shape = $.createShape(
-  {
-    lifeTime : 810114514,
-    motionGroup : [
-      {
-        fontSize :
-        {
-          fromValue : "�Űݺ���",
-          toValue : "�����ټ�",
-          lifeTime : 810114514,
-          startDelay : 810114514
-        }
-      }
-    ]
-  });
-  
-  ScriptManager.popEl( shape );
-  
-  // remove 3D to make it clear by default
-  shape.transform.matrix3D = null;
-  
-  return shape;
-};
-
-/* Class: Text
- * Shortcut for AS3 TextField.
- *
- * preserveGlow
- *   [default] false
- *   Whether to preserve the original glow filter
- */
-Akari.Display.Text = function( preserveGlow )
-{
-  var text = $.createComment( "",
-  {
-    lifeTime : 810114514,
-    motionGroup : [
-      {
-        fontSize :
-        {
-          fromValue : "�Ա�����",
-          toValue : "һֱ����",
-          lifeTime : 810114514,
-          startDelay : 810114514
-        }
-      }
-    ]
-  });
-  
-  ScriptManager.popEl( text );
-  
-  if ( !preserveGlow ) text.filters = null;
-  
-  // remove 3D to make it clear by default
-  text.transform.matrix3D = null;
-  
-  return text;
-};
-
-/* Class: Solid
- * A solid color layer source.
- *
- * width
- *   A Number specifying solid width.
- * height
- *   A Number specifying solid height.
- * color
- *   A Number specifying solid color.
- */
-Akari.Display.Solid = function( params )
-{
-  var shape = Akari.Display.Shape();
-  
-  shape.graphics.beginFill( params.color );
-  shape.graphics.drawRect( 0, 0, params.width, params.height );
-  shape.graphics.endFill();
-  
-  return shape;
-};
-
-/* Class: Anchor
- * Anchors the layer source at a specific point
- *
- * source
- *   The DisplayObject to wrap around
- * x
- *   [default] source.width / 2
- *   Anchor X.
- * y
- *   [default] source.height / 2
- *   Anchor Y.
- */
-Akari.Display.Anchor = function( params )
-{
-  var sprite = Akari.Display.Sprite();
-  
-  sprite.addChild( params.source );
-  params.source.x = - ( params.x || params.source.width / 2 );
-  params.source.y = - ( params.y || params.source.height / 2 );
-  
-  return sprite;
-};
-
-/* Class: Anchor3D
- * Anchors the layer source at a specific point in 3D space
- *
- * source
- *   The DisplayObject to wrap around
- * x
- *   [default] source.width / 2
- *   Anchor X.
- * y
- *   [default] source.height / 2
- *   Anchor Y.
- * z
- *   [default] 0
- *   Anchor Z.
- */
-Akari.Display.Anchor3D = function( params )
-{
-  var sprite = Akari.Display.Sprite();
-  
-  sprite.addChild( params.source );
-  params.source.x = - ( params.x || params.source.width / 2 );
-  params.source.y = - ( params.y || params.source.height / 2 );
-  params.source.z = - ( params.z || 0 );
-  
-  return sprite;
-};
-
-/* Class: Checkerboard
- * A checkboard layer source.
- *
- * width
- *   A Number specifying checkboard width.
- * height
- *   A Number specifying checkboard height.
- * frequencyX
- *   Number of blocks on X axis.
- * frequencyY
- *   Number of blocks on Y axis.
- * color1
- *   A Number specifying checkboard background color.
- * color2
- *   A Number specifying checkboard foreground color.
- */
-Akari.Display.Checkerboard = function( params )
-{
-  var shape = Akari.Display.Shape();
-  
-  shape.graphics.beginFill( params.color1 );
-  shape.graphics.drawRect( 0, 0, params.width, params.height );
-  shape.graphics.endFill();
-  
-  // Draw the foreground
-  shape.graphics.beginFill( params.color2 );
-  
-  // Draw the horizontal snake
-  var i = 0;
-  for ( i = 0; i <= params.frequencyY; i ++ )
-  {
-    if ( i % 2 === 0 )
-    {
-      shape.graphics.lineTo( 0, params.height * i / params.frequencyY );
-      shape.graphics.lineTo( params.width, params.height * i / params.frequencyY );
-    }
-    else
-    {
-      shape.graphics.lineTo( params.width, params.height * i / params.frequencyY );
-      shape.graphics.lineTo( 0, params.height * i / params.frequencyY );
-    }
-  }
-  if ( params.frequencyY % 2 === 0 )
-  {
-    shape.graphics.lineTo( params.width, 0 );
-  }
-  shape.graphics.lineTo( 0, 0 );
-  
-  // Draw the vertical snake
-  shape.graphics.moveTo( 0, 0 );
-  for ( i = 0; i <= params.frequencyX; i ++ )
-  {
-    if ( i % 2 === 0 )
-    {
-      shape.graphics.lineTo( params.width * i / params.frequencyX, 0 );
-      shape.graphics.lineTo( params.width * i / params.frequencyX, params.height );
-    }
-    else
-    {
-      shape.graphics.lineTo( params.width * i / params.frequencyX, params.height );
-      shape.graphics.lineTo( params.width * i / params.frequencyX, 0 );
-    }
-  }
-  if ( params.frequencyX % 2 === 0 )
-  {
-    shape.graphics.lineTo( 0, params.height );
-  }
-  shape.graphics.lineTo( 0, 0 );
-  
-  shape.graphics.endFill();
-  
-  return shape;
-};
 
 
 
@@ -2434,6 +1771,753 @@ Akari.Animation.CurveTrace = function( params )
 };
 
 
+/* Namespace: Akari.Display
+ * This sort of classes are abstractions of display objects for use in production.
+ */
+
+Akari.Display = {};
+ 
+/* Class: Layer
+ * Provides functions for animating contents.
+ *
+ * source
+ *   A DisplayObject serving as the layer source.
+ * inPoint
+ *   A Number, the time (in milliseconds) at which the layers enters.
+ * outPoint
+ *   A Number, the time (in milliseconds) at which the layers exits.
+ * properties
+ *   [default] {}
+ *   An Object, containing values or Bindings for each AS3 property.
+ */
+Akari.Display.Layer = function( params )
+{
+  // Create a private binder for properties
+  var binder = Akari.Utilities.Binder({ object : params.source, properties : params.properties || {} });
+  
+  var layer =
+  {
+    source : params.source,
+    inPoint : params.inPoint,
+    outPoint : params.outPoint,
+    
+    /* Function: update
+     * Updates the layer to fit the timeline.
+     *
+     * time
+     *   A Number, the current time (in milliseconds) on the Composition's timeline.
+     */
+    update : function( time )
+    {
+      if ( time < params.inPoint || time >= params.outPoint )
+      {
+        this.source.visible = false;
+      }
+      else
+      {
+        // Set source visible first, so that it can be overridden by binder.
+        this.source.visible = true;
+        
+        binder.update( time, this.getBinderScope() );
+      }
+    },
+    
+    /* Function: getBinderScope
+     * Dynamically return self for use as scope in Binders.
+     */
+    getBinderScope : function()
+    {
+      return this;
+    },
+    
+    /* Function: clone
+     * Custom clone function for binder to work.
+     */
+    clone : function()
+    {
+      return Akari.Display.Layer( Akari.Utilities.Factory.clone( params ) );
+    }
+  };
+  
+  // Update Layer for a first time to prevent flashing
+  layer.update( params.inPoint );
+  
+  return layer;
+};
+
+/* Class: DynamicSourceLayer
+ * A type of layer specialized to handle dynamic layer sources.
+ *
+ * provider
+ *   A DynamicLayerSourceProvider.
+ * inPoint
+ *   A Number, the time (in milliseconds) at which the layers enters.
+ * outPoint
+ *   A Number, the time (in milliseconds) at which the layers exits.
+ * inPointTime
+ *   [default] provider.startTime
+ *   A Number, the time (in milliseconds) the DynamicLayerSourceProvider is at when the layers enters.
+ * outPointTime
+ *   [default] provider.startTime + provider.duration
+ *   A Number, the time (in milliseconds) the DynamicLayerSourceProvider is at when the layers exits.
+ * timeRemap
+ *   [default] null
+ *   A Function or null, depending on whether you need time remapping. Setting this function overrides inPointTime and outPointTime settings.
+ *   The function should accept a parameter time (in milliseconds) the current time.
+ * properties
+ *   [default] {}
+ *   An Object, containing values or Bindings for each AS3 property.
+ */
+Akari.Display.DynamicSourceLayer = function( params )
+{
+  var nestedProvider = params.provider;
+  var inPointTime = params.inPointTime || nestedProvider.startTime;
+  var outPointTime = params.outPointTime || nestedProvider.startTime + nestedProvider.duration;
+  
+  // Create a Layer.
+  var layer = Akari.Display.Layer(
+  {
+    source : nestedProvider.canvas,
+    inPoint : params.inPoint,
+    outPoint : params.outPoint,
+    properties : params.properties
+  });
+  
+  // Simulate inheritance by making a backup of update function.
+  var baseUpdate = Akari.Utilities.Factory.clone( layer.update, layer );
+  
+  // Declare new update regarding nested DynamicLayerSourceProvider timeline.
+  // Declare different functions according to having timeRemap or not to improve performance.
+  if ( params.timeRemap )
+  {
+    layer.update = function( time )
+    {
+      baseUpdate( time );
+      
+      if ( this.source.visible )
+        nestedProvider.update( params.timeRemap( time ) );
+    };
+  }
+  else
+  {
+    layer.update = function( time )
+    {
+      baseUpdate( time );
+      
+      if ( this.source.visible )
+        nestedProvider.update( inPointTime + ( time - params.inPoint ) * (outPointTime - inPointTime) / ( params.outPoint - params.inPoint) );
+    };
+  }
+    
+  /* Function: clone
+   * Custom clone function for binder to work.
+   */
+  layer.clone = function()
+  {
+    return Akari.Display.DynamicSourceLayer( Akari.Utilities.Factory.clone( params ) );
+  };
+  
+  // Update Layer for a first time to prevent flashing
+  layer.update( params.inPoint );
+  
+  return layer;
+};
+
+/* Class: Composition
+ * A DynamicLayerSourceProvider that provides functions as the framework of a scene.
+ *
+ * width
+ *   [default] $.width
+ *   A Number specifying stage width.
+ * height
+ *   [default] $.height
+ *   A Number specifying stage height.
+ * startTime
+ *   [default] 0
+ *   A Number, the time (in milliseconds) when the timeline starts.
+ * duration
+ *   [default] 60000
+ *   A Number, the length (in milliseconds) of the timeline.
+ * layers
+ *   [default] []
+ *   An Array of Layers, from top to bottom.
+ * hasBoundaries
+ *   [default] false
+ *   Whether a mask will be put on the canvas so that elements outside become invisible.
+ */
+Akari.Display.Composition = function( params )
+{
+  var canvas = Akari.Display.Sprite();
+  if ( params.hasBoundaries )
+  {
+    var solidMask = Akari.Display.Solid({ width : params.width || $.width, height : params.height || $.height, color : 0x0 });
+    canvas.addChild( solidMask );
+    canvas.mask = solidMask;
+  }
+  
+  var layers = Akari.Utilities.Factory.collapse( params.layers || [] );
+  var i = 0;
+  
+  for ( i = 0; i < layers.length; i ++ )
+  {
+    canvas.addChild( layers[ i ].source );
+  }
+  
+  return
+  {
+    width : params.width || $.width,
+    height : params.height || $.height,
+    startTime : params.startTime || 0,
+    duration : params.duration || 60000,
+    layers : layers,
+    canvas : canvas,
+    
+    /* Function: update
+     * Updates the canvas to fit the timeline.
+     *
+     * time
+     *   A Number, the current time (in milliseconds) on the Composition's own timeline.
+     */
+    update : function( time )
+    {
+      // Check if Composition is active, otherwise update for borderline situations.
+      if ( time < startTime )
+        return this.update( startTime );
+      if ( time >= startTime + duration )
+        return this.update( startTime + duration - 1 );
+      
+      foreach( this.layers, function( key, object )
+      {
+        if ( !object.parent ) object.parent = this;
+        object.update( time );
+      });
+    },
+    
+    /* Function: clone
+     * Custom clone function to ensure masking work.
+     */
+    clone : function()
+    {
+      return Akari.Display.Composition( Akari.Utilities.Factory.clone( params ) );
+    }
+  };
+};
+
+/* Class: MainComposition
+ * Provides functions as the framework of the comment art. Only MainCompositions have ability to be presented.
+ *
+ * width
+ *   [default] $.width
+ *   A Number specifying stage width.
+ * height
+ *   [default] $.height
+ *   A Number specifying stage height.
+ * startTime
+ *   [default] 0
+ *   A Number, the time (in milliseconds) when the timeline starts.
+ * duration
+ *   [default] 60000
+ *   A Number, the length (in milliseconds) of the timeline.
+ * layers
+ *   [default] []
+ *   An Array of Layers, from top to bottom.
+ * hasBoundaries
+ *   [default] true
+ *   Whether a mask will be put on the canvas so that elements outside become invisible.
+ */
+Akari.Display.MainComposition = function( params )
+{
+  if (!( params.hasBoundaries === false ))
+  {
+    params.hasBoundaries = true;
+  }
+  
+  var composition = Akari.Display.Composition( params );
+  
+  // Remember when did the comp last update to maintain seekability.
+  var lastUpdate = -1;
+  
+  // Remember the player size to maintain scalability
+  var lastWidth, lastHeight;
+  
+  // Prepare the frame function, need a private handle for removing.
+  var frameFunction = function()
+  {
+    // Check if player is running
+    if ( Player.state === "playing" )
+    {        
+      Akari.Utilities.Timer.update();
+      
+      composition.update( Akari.Utilities.Timer.time );
+    }
+    else
+    {
+      // When player is not running, check last update time to ensure seekability.
+      if ( lastUpdate != Player.time )
+        composition.update( Player.time );
+    }
+    
+    // Check if player size changed
+    // I dislike polling but can't find a event to listen for this. Need suggestion
+    if ( $.width != lastWidth || $.height != lastHeight )
+    {
+      maximizeInContainer();
+      
+      lastWidth = $.width;
+      lastHeight = $.height;
+    }
+  };
+  
+  var maximizeInContainer = function()
+  {
+    ratio = Math.min( $.width / Akari.root.scaleX / composition.width, $.height / Akari.root.scaleY / composition.height );
+    composition.canvas.scaleX = ratio;
+    composition.canvas.scaleY = ratio;
+    
+    composition.canvas.x = ( $.width / Akari.root.scaleX - composition.width * ratio ) / 2;
+    composition.canvas.y = ( $.height / Akari.root.scaleY - composition.height * ratio ) / 2;
+  };
+  
+  // Declare new update for update time stuff
+  var baseUpdate = Akari.Utilities.Factory.clone( composition.update, composition );
+  
+  composition.update = function( time )
+  {
+    lastUpdate = time;
+    baseUpdate( time );
+  };
+
+  /* Function: present
+   * Presents the composition immediately. Only one Composition can be presented at a time.
+   */
+  composition.present = function()
+  {
+    this.canvas.addEventListener( "enterFrame", frameFunction );
+    
+    Akari.root.addChild( this.canvas );
+    
+    frameFunction();
+  };
+    
+  /* Function: detach
+   * Detaches the composition from player.
+   */
+  composition.detach = function()
+  {
+    this.canvas.removeEventListener( "enterFrame", frameFunction );
+    
+    Akari.root.removeChild( this.canvas );
+  };
+    
+  /* Function: clone
+   * Custom clone function for binder to work.
+   */
+  composition.clone = function()
+  {
+    return Akari.Display.MainComposition( Akari.Utilities.Factory.clone( params ) );
+  };
+  
+  // Return Composition
+  return composition;
+};
+
+/* Static Function: getInstance
+ * Read the global variable. Only avaiable after one has been presented.
+ */
+Akari.Display.MainComposition.getInstance = function()
+{
+  return Global._get("__mainComp_akari");
+};
+
+/* Class: Animation
+ * A DynamicLayerSourceProvider with primitive stop motion animation support.
+ *
+ * frames
+ *   An Array of functions with signature function( graphics ){ }.
+ * frameRate
+ *   [default] 12
+ *   The rate at which the animation is played.
+ *   Setting a rate much too high while having a complex scene can probably cause performance problems.
+ */
+Akari.Display.Animation = function( params )
+{
+  var lastFrame = 0;
+  var frameRate = params.frameRate || 12;
+  
+  // Function for getting the current frame
+  var findCurrentIndex = function( time )
+  {
+    return Math.floor( time * frameRate / 1000 );
+  };
+  
+  var canvas = Akari.Display.Shape();
+  
+  return
+  {
+    startTime : 0,
+    duration : params.frames.length * 1000 / frameRate,
+    canvas : canvas,
+    
+    /* Function: update
+     * Updates the canvas to fit the timeline.
+     *
+     * time
+     *   A Number, the current time (in milliseconds) on the Animation's own timeline.
+     */
+    update : function( time )
+    {
+      // Check if an update is needed
+      var currentFrame = findCurrentIndex( time );
+      if ( currentFrame === lastFrame ) return;
+      
+      canvas.graphics.clear();
+      params.frames[ currentFrame ]( canvas.graphics );
+      
+      lastFrame = currentFrame;
+    },
+    
+    /* Function: clone
+     * Custom clone function for canvas and such.
+     */
+    clone : function()
+    {
+      return Akari.Display.Animation( Akari.Utilities.Factory.clone( params ) );
+    }
+  };
+};
+
+/* Class: Sprite
+ * Shortcut for AS3 Sprite.
+ */
+Akari.Display.Sprite = function()
+{
+  var sprite = $.createCanvas(
+  {
+    lifeTime : 810114514
+  });
+  
+  ScriptManager.popEl( sprite );
+  
+  // remove 3D to make it clear by default
+  sprite.transform.matrix3D = null;
+  
+  return sprite;
+};
+
+/* Class: Shape
+ * Shortcut for AS3 Shape.
+ */
+Akari.Display.Shape = function()
+{
+  var shape = $.createShape(
+  {
+    lifeTime : 810114514
+  });
+  
+  ScriptManager.popEl( shape );
+  
+  // remove 3D to make it clear by default
+  shape.transform.matrix3D = null;
+  
+  return shape;
+};
+
+/* Class: Text
+ * Shortcut for AS3 TextField.
+ *
+ * preserveGlow
+ *   [default] false
+ *   Whether to preserve the original glow filter
+ */
+Akari.Display.Text = function( preserveGlow )
+{
+  var text = $.createComment( "",
+  {
+    lifeTime : 810114514
+  });
+  
+  ScriptManager.popEl( text );
+  
+  if ( !preserveGlow ) text.filters = null;
+  
+  // remove 3D to make it clear by default
+  text.transform.matrix3D = null;
+  
+  return text;
+};
+
+/* Class: Solid
+ * A solid color layer source.
+ *
+ * width
+ *   A Number specifying solid width.
+ * height
+ *   A Number specifying solid height.
+ * color
+ *   A Number specifying solid color.
+ */
+Akari.Display.Solid = function( params )
+{
+  var shape = Akari.Display.Shape();
+  
+  shape.graphics.beginFill( params.color );
+  shape.graphics.drawRect( 0, 0, params.width, params.height );
+  shape.graphics.endFill();
+  
+  return shape;
+};
+
+/* Class: Anchor
+ * Anchors the layer source at a specific point
+ *
+ * source
+ *   The DisplayObject to wrap around
+ * x
+ *   [default] source.width / 2
+ *   Anchor X.
+ * y
+ *   [default] source.height / 2
+ *   Anchor Y.
+ */
+Akari.Display.Anchor = function( params )
+{
+  var sprite = Akari.Display.Sprite();
+  
+  sprite.addChild( params.source );
+  params.source.x = - ( params.x || params.source.width / 2 );
+  params.source.y = - ( params.y || params.source.height / 2 );
+  
+  return sprite;
+};
+
+/* Class: Anchor3D
+ * Anchors the layer source at a specific point in 3D space
+ *
+ * source
+ *   The DisplayObject to wrap around
+ * x
+ *   [default] source.width / 2
+ *   Anchor X.
+ * y
+ *   [default] source.height / 2
+ *   Anchor Y.
+ * z
+ *   [default] 0
+ *   Anchor Z.
+ */
+Akari.Display.Anchor3D = function( params )
+{
+  var sprite = Akari.Display.Sprite();
+  
+  sprite.addChild( params.source );
+  params.source.x = - ( params.x || params.source.width / 2 );
+  params.source.y = - ( params.y || params.source.height / 2 );
+  params.source.z = - ( params.z || 0 );
+  
+  return sprite;
+};
+
+/* Class: Checkerboard
+ * A checkboard layer source.
+ *
+ * width
+ *   A Number specifying checkboard width.
+ * height
+ *   A Number specifying checkboard height.
+ * frequencyX
+ *   Number of blocks on X axis.
+ * frequencyY
+ *   Number of blocks on Y axis.
+ * color1
+ *   A Number specifying checkboard background color.
+ * color2
+ *   A Number specifying checkboard foreground color.
+ */
+Akari.Display.Checkerboard = function( params )
+{
+  var shape = Akari.Display.Shape();
+  
+  shape.graphics.beginFill( params.color1 );
+  shape.graphics.drawRect( 0, 0, params.width, params.height );
+  shape.graphics.endFill();
+  
+  // Draw the foreground
+  shape.graphics.beginFill( params.color2 );
+  
+  // Draw the horizontal snake
+  var i = 0;
+  for ( i = 0; i <= params.frequencyY; i ++ )
+  {
+    if ( i % 2 === 0 )
+    {
+      shape.graphics.lineTo( 0, params.height * i / params.frequencyY );
+      shape.graphics.lineTo( params.width, params.height * i / params.frequencyY );
+    }
+    else
+    {
+      shape.graphics.lineTo( params.width, params.height * i / params.frequencyY );
+      shape.graphics.lineTo( 0, params.height * i / params.frequencyY );
+    }
+  }
+  if ( params.frequencyY % 2 === 0 )
+  {
+    shape.graphics.lineTo( params.width, 0 );
+  }
+  shape.graphics.lineTo( 0, 0 );
+  
+  // Draw the vertical snake
+  shape.graphics.moveTo( 0, 0 );
+  for ( i = 0; i <= params.frequencyX; i ++ )
+  {
+    if ( i % 2 === 0 )
+    {
+      shape.graphics.lineTo( params.width * i / params.frequencyX, 0 );
+      shape.graphics.lineTo( params.width * i / params.frequencyX, params.height );
+    }
+    else
+    {
+      shape.graphics.lineTo( params.width * i / params.frequencyX, params.height );
+      shape.graphics.lineTo( params.width * i / params.frequencyX, 0 );
+    }
+  }
+  if ( params.frequencyX % 2 === 0 )
+  {
+    shape.graphics.lineTo( 0, params.height );
+  }
+  shape.graphics.lineTo( 0, 0 );
+  
+  shape.graphics.endFill();
+  
+  return shape;
+};
+
+
+
+
+/* Namespace: Akari.Display.Effects
+ * This sort of classes are effects that wrap around layers. Not to be confused with filters which should be set with Binders.
+ */
+
+Akari.Display.Effects = {};
+
+/* Class: TrackMatte
+ * Use another layer as a mask.
+ *
+ * layer
+ *   The Layer to be masked.
+ * mask
+ *   The mask Layer.
+ */
+Akari.Display.Effects.TrackMatte = function( params )
+{
+  // Replace original source with double canvas that contains both display objects,
+  // which will be added to the Composition instead.
+  var canvas = Akari.Display.Sprite();
+  var layerCanvas = Akari.Display.Sprite();
+  layerCanvas.addChild( params.layer.source );
+  layerCanvas.addChild( params.mask.source );
+  canvas.addChild( layerCanvas );
+  params.layer.source = canvas;
+
+  layerCanvas.blendMode = "layer";
+  
+  // Simulate inheritance by making a backup of update function.
+  var baseUpdate = Akari.Utilities.Factory.clone( params.layer.update, params.layer );
+  
+  params.layer.update = function( time )
+  {
+    baseUpdate( time );
+    params.mask.update( time );
+
+    params.mask.source.blendMode = "alpha";
+    canvas.blendMode = params.layer.source.blendMode;
+  };
+  
+  return params.layer;
+};
+
+/* Class: ForceMotionBlur
+ * An effect dedicated to create motion blur effects which Flash lacks. Use the effect with Replicator.
+ *
+ * layers
+ *   The Layers to use.
+ * exposureTime
+ *   [default] 20.8333333
+ *   Exposure time (in milliseconds). Defaults to 1000/48 (double the Player frame rate).
+ * shutterPhase
+ *   [default] -90
+ *   Shutter phase in degrees.
+ */
+Akari.Display.Effects.ForceMotionBlur = function( params )
+{
+  if ( !params.exposureTime ) params.exposureTime = 1000.0 / 48.0;
+  var shutterOffset = params.exposureTime * ( params.shutterPhase || -90.0 ) / 180.0;
+  
+  // Use double canvas since to preserve blend mode, the return from adding must be contained by a Sprite with blendMode "layer"
+  var canvas = Akari.Display.Sprite();
+  var layerCanvas = Akari.Display.Sprite();
+  
+  // An invisible layer for preserving alpha and blend
+  var original = params.layers.shift();
+  
+  // Add sub-layers to display tree, calculate alpha values to avoid the internal 256 thing
+  var subLayers = params.layers;
+  var subAlphas = [];
+  var totalAlphaYet = 0;
+  var i = 0;
+  for ( i = 0; i < subLayers.length; i++ )
+  {
+    var idealTotalAlpha = Math.ceil( 256 * ( i + 1 ) / subLayers.length );
+    var subAlpha = idealTotalAlpha - totalAlphaYet;
+    subAlphas.push( ( subAlpha + 1 ) / 256 );
+    totalAlphaYet += subAlpha;
+
+    var addWrap = Akari.Display.Sprite();
+    addWrap.alpha = subAlphas[ i ];
+    addWrap.blendMode = "add";
+    addWrap.addChild( subLayers[ i ].source );
+    layerCanvas.addChild( addWrap );
+  }
+
+  layerCanvas.blendMode = "layer";
+  canvas.addChild( layerCanvas );
+  
+  // Create a new layer, binding alpha and blendMode with original layer
+  var layer = Akari.Display.Layer(
+  {
+    source : canvas,
+    inPoint : original.inPoint,
+    outPoint : original.outPoint,
+    properties :
+    {
+      alpha : function( time ) { return original.source.alpha; },
+      blendMode : function( time ) { return original.source.blendMode; }
+    }
+  });
+  
+  // Simulate inheritance by making a backup of update function.
+  var baseUpdate = Akari.Utilities.Factory.clone( layer.update, layer );
+  
+  // Declare new update
+  layer.update = function( time )
+  {
+    // Update original layer to get binding work
+    original.update( time );
+    baseUpdate( time );
+
+    for ( var ir = subLayers.length - 1; ir >= 0; ir -- )
+    {
+      subLayers[ ir ].update( time + params.exposureTime * ir / subLayers.length + shutterOffset );
+      subLayers[ ir ].source.alpha = 1;
+      subLayers[ ir ].source.blendMode = "layer";
+    }
+  };
+  
+  return layer;
+};
+
+
+
 
 /* Namespace: Akari.Display.Text
  * Classes for displaying vector text.
@@ -2836,126 +2920,6 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
 
   // Update Layer for a first time to prevent flashing
   layer.update( params.inPoint );
-  
-  return layer;
-};
-
-
-
-/* Namespace: Akari.Display.Effects
- * This sort of classes are effects that wrap around layers. Not to be confused with filters which should be set with Binders.
- */
-
-Akari.Display.Effects = {};
-
-/* Class: TrackMatte
- * Use another layer as a mask.
- *
- * layer
- *   The Layer to be masked.
- * mask
- *   The mask Layer.
- */
-Akari.Display.Effects.TrackMatte = function( params )
-{
-  // Replace original source with double canvas that contains both display objects,
-  // which will be added to the Composition instead.
-  var canvas = Akari.Display.Sprite();
-  var layerCanvas = Akari.Display.Sprite();
-  layerCanvas.addChild( params.layer.source );
-  layerCanvas.addChild( params.mask.source );
-  canvas.addChild( layerCanvas );
-  params.layer.source = canvas;
-
-  layerCanvas.blendMode = "layer";
-  
-  // Simulate inheritance by making a backup of update function.
-  var baseUpdate = Akari.Utilities.Factory.clone( params.layer.update, params.layer );
-  
-  params.layer.update = function( time )
-  {
-    baseUpdate( time );
-    params.mask.update( time );
-
-    params.mask.source.blendMode = "alpha";
-    canvas.blendMode = params.layer.source.blendMode;
-  };
-  
-  return params.layer;
-};
-
-/* Class: ForceMotionBlur
- * An effect dedicated to create motion blur effects which Flash lacks. Use the effect with Replicator.
- *
- * layers
- *   The Layers to use.
- * exposureTime
- *   [default] 20.8333333
- *   Exposure time (in milliseconds). Defaults to 1000/48 (double the Player frame rate).
- * shutterPhase
- *   [default] -90
- *   Shutter phase in degrees.
- */
-Akari.Display.Effects.ForceMotionBlur = function( params )
-{
-  if ( !params.exposureTime ) params.exposureTime = 1000.0 / 48.0;
-  var shutterOffset = params.exposureTime * ( params.shutterPhase || -90.0 ) / 180.0;
-  
-  // Use double canvas since to preserve blend mode, the return from adding must be contained by a Sprite with blendMode "layer"
-  var canvas = Akari.Display.Sprite();
-  var layerCanvas = Akari.Display.Sprite();
-  
-  // An invisible layer for preserving alpha and blend
-  var original = params.layers.shift();
-  
-  // Add sub-layers to display tree, calculate alpha values to avoid the internal 256 thing
-  var subLayers = params.layers;
-  var subAlphas = [];
-  var totalAlphaYet = 0;
-  var i = 0;
-  for ( i = 0; i < subLayers.length; i++ )
-  {
-    layerCanvas.addChild( subLayers[ i ].source );
-    
-    var idealTotalAlpha = Math.ceil( 256 * ( i + 1 ) / subLayers.length );
-    var subAlpha = idealTotalAlpha - totalAlphaYet;
-    subAlphas.push( ( subAlpha + 1 ) / 256 );
-    totalAlphaYet += subAlpha;
-  }
-
-  layerCanvas.blendMode = "layer";
-  canvas.addChild( layerCanvas );
-  
-  // Create a new layer, binding alpha and blendMode with original layer
-  var layer = Akari.Display.Layer(
-  {
-    source : canvas,
-    inPoint : original.inPoint,
-    outPoint : original.outPoint,
-    properties :
-    {
-      alpha : function( time ) { return original.source.alpha; },
-      blendMode : function( time ) { return original.source.blendMode; }
-    }
-  });
-  
-  // Simulate inheritance by making a backup of update function.
-  var baseUpdate = Akari.Utilities.Factory.clone( layer.update, layer );
-  
-  // Declare new update
-  layer.update = function( time )
-  {
-    // Update original layer to get binding work
-    original.update( time );
-    baseUpdate( time );
-
-    for ( var ir = subLayers.length - 1; ir >= 0; ir -- )
-    {
-      subLayers[ ir ].update( time + params.exposureTime * ir / subLayers.length + shutterOffset );
-      subLayers[ ir ].source.alpha = subAlphas[ ir ];
-      subLayers[ ir ].source.blendMode = "add";
-    }
-  };
   
   return layer;
 };

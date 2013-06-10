@@ -423,18 +423,7 @@ Akari.Display.Sprite = function()
 {
   var sprite = $.createCanvas(
   {
-    lifeTime : 810114514,
-    motionGroup : [
-      {
-        fontSize :
-        {
-          fromValue : "ʮ������",
-          toValue : "ӹ����Ȥ",
-          lifeTime : 810114514,
-          startDelay : 810114514
-        }
-      }
-    ]
+    lifeTime : 810114514
   });
   
   ScriptManager.popEl( sprite );
@@ -452,18 +441,7 @@ Akari.Display.Shape = function()
 {
   var shape = $.createShape(
   {
-    lifeTime : 810114514,
-    motionGroup : [
-      {
-        fontSize :
-        {
-          fromValue : "�Űݺ���",
-          toValue : "�����ټ�",
-          lifeTime : 810114514,
-          startDelay : 810114514
-        }
-      }
-    ]
+    lifeTime : 810114514
   });
   
   ScriptManager.popEl( shape );
@@ -485,18 +463,7 @@ Akari.Display.Text = function( preserveGlow )
 {
   var text = $.createComment( "",
   {
-    lifeTime : 810114514,
-    motionGroup : [
-      {
-        fontSize :
-        {
-          fromValue : "�Ա�����",
-          toValue : "һֱ����",
-          lifeTime : 810114514,
-          startDelay : 810114514
-        }
-      }
-    ]
+    lifeTime : 810114514
   });
   
   ScriptManager.popEl( text );

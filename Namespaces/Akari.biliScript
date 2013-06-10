@@ -27,9 +27,12 @@ Akari.execute = function( mainComp )
  */
 Akari.stop = function()
 {
-  ( Global._get("__mainComp_akari") ).detach();
-  Global._set( "__mainComp_akari", null );
-  Global._set( "__isExecuted_akari", null );
+  if ( Akari.isExecuted() )
+  {
+    ( Global._get("__mainComp_akari") ).detach();
+    Global._set( "__mainComp_akari", null );
+    Global._set( "__isExecuted_akari", null );
+  }
 };
 
 /* Function: isExecuted
@@ -53,18 +56,7 @@ Akari.root = function()
   {
     var sprite = $.createCanvas(
     {
-      lifeTime : 810114514,
-      motionGroup : [
-        {
-          fontSize :
-          {
-            fromValue : "Ҫ������",
-            toValue : "�ж�����",
-            lifeTime : 810114514,
-            startDelay : 810114514
-          }
-        }
-      ]
+      lifeTime : 810114514
     });
 
     spriteManager.popEl( sprite );

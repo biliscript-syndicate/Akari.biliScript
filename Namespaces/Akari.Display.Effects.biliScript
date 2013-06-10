@@ -1,4 +1,4 @@
-﻿// {{Depend : Akari}} //
+// {{Depend : Akari}} //
 // {{Depend : Akari.Utilities}} //
 // {{Depend : Akari.Display}} //
 
@@ -75,12 +75,16 @@ Akari.Display.Effects.ForceMotionBlur = function( params )
   var i = 0;
   for ( i = 0; i < subLayers.length; i++ )
   {
-    layerCanvas.addChild( subLayers[ i ].source );
-    
     var idealTotalAlpha = Math.ceil( 256 * ( i + 1 ) / subLayers.length );
     var subAlpha = idealTotalAlpha - totalAlphaYet;
     subAlphas.push( ( subAlpha + 1 ) / 256 );
     totalAlphaYet += subAlpha;
+
+    var addWrap = Akari.Display.Sprite();
+    addWrap.alpha = subAlphas[ i ];
+    addWrap.blendMode = "add";
+    addWrap.addChild( subLayers[ i ].source );
+    layerCanvas.addChild( addWrap );
   }
 
   layerCanvas.blendMode = "layer";
@@ -112,8 +116,8 @@ Akari.Display.Effects.ForceMotionBlur = function( params )
     for ( var ir = subLayers.length - 1; ir >= 0; ir -- )
     {
       subLayers[ ir ].update( time + params.exposureTime * ir / subLayers.length + shutterOffset );
-      subLayers[ ir ].source.alpha = subAlphas[ ir ];
-      subLayers[ ir ].source.blendMode = "add";
+      subLayers[ ir ].source.alpha = 1;
+      subLayers[ ir ].source.blendMode = "layer";
     }
   };
   
