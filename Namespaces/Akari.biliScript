@@ -59,7 +59,7 @@ Akari.root = function()
       lifeTime : 810114514
     });
 
-    spriteManager.popEl( sprite );
+    ScriptManager.popEl( sprite );
     
     // remove 3D to make it clear by default
     sprite.transform.matrix3D = null;

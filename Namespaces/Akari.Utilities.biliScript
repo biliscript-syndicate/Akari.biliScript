@@ -97,6 +97,31 @@ Akari.Utilities.Factory =
       {
         // Probably AS3 or an empty shit, make a clone first
         newObject = clone( object );
+
+        if ( object.hasOwnProperty( "numChildren" ) || object.hasOwnProperty( "graphics" ) )
+        {
+          newObject = $.createCanvas(
+          {
+            lifeTime : 810114514
+          });
+
+          ScriptManager.popEl( newObject );
+
+          // copy some displayObject parameters
+          newObject.alpha = object.alpha;
+          newObject.blendMode = object.blendMode;
+          newObject.filters = object.filters;
+          newObject.rotationX = object.rotationX;
+          newObject.rotationY = object.rotationY;
+          newObject.rotationZ = object.rotationZ;
+          newObject.scaleX = object.scaleX;
+          newObject.scaleY = object.scaleY;
+          newObject.scaleZ = object.scaleZ;
+          newObject.scrollRect = object.scrollRect;
+          newObject.transform.colorTransform = object.transform.colorTransform;
+          newObject.transform.matrix = object.transform.matrix;
+          newObject.transform.matrix3D = object.transform.matrix3D;
+        }
         
         // Check if it's a DOC
         if ( object.hasOwnProperty( "numChildren" ) )

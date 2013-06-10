@@ -82,7 +82,7 @@ Akari.root = function()
       lifeTime : 810114514
     });
 
-    spriteManager.popEl( sprite );
+    ScriptManager.popEl( sprite );
     
     // remove 3D to make it clear by default
     sprite.transform.matrix3D = null;
@@ -189,6 +189,31 @@ Akari.Utilities.Factory =
       {
         // Probably AS3 or an empty shit, make a clone first
         newObject = clone( object );
+
+        if ( object.hasOwnProperty( "numChildren" ) || object.hasOwnProperty( "graphics" ) )
+        {
+          newObject = $.createCanvas(
+          {
+            lifeTime : 810114514
+          });
+
+          ScriptManager.popEl( newObject );
+
+          // copy some displayObject parameters
+          newObject.alpha = object.alpha;
+          newObject.blendMode = object.blendMode;
+          newObject.filters = object.filters;
+          newObject.rotationX = object.rotationX;
+          newObject.rotationY = object.rotationY;
+          newObject.rotationZ = object.rotationZ;
+          newObject.scaleX = object.scaleX;
+          newObject.scaleY = object.scaleY;
+          newObject.scaleZ = object.scaleZ;
+          newObject.scrollRect = object.scrollRect;
+          newObject.transform.colorTransform = object.transform.colorTransform;
+          newObject.transform.matrix = object.transform.matrix;
+          newObject.transform.matrix3D = object.transform.matrix3D;
+        }
         
         // Check if it's a DOC
         if ( object.hasOwnProperty( "numChildren" ) )
@@ -2400,6 +2425,27 @@ Akari.Display.Checkerboard = function( params )
 
 Akari.Display.Effects = {};
 
+/* Class: EffectStack
+ * A more intuitive way to apply effects. Passes the original layer down a stack of effect layers.
+ *
+ * layer
+ *   The original.
+ * effects
+ *   Array( [ Constructor effect, PlainObject params ] ). Effects should have an stackInterface that handles pipelining.
+ *   stackInterface should be a Function( Layer, PlainObject params ) that incorporates the missing Layer parameter into params and calls effect Constructor.
+ */
+Akari.Display.Effects.EffectStack = function( layer, effects )
+{
+  var currentLayer = layer;
+
+  for ( var i = 0; i < effects.length; i ++ )
+  {
+    currentLayer = effects[ i ][ 0 ].stackInterface( currentLayer, effects[ i ][ 1 ] );
+  }
+
+  return currentLayer;
+};
+
 /* Class: TrackMatte
  * Use another layer as a mask.
  *
@@ -2434,6 +2480,14 @@ Akari.Display.Effects.TrackMatte = function( params )
   };
   
   return params.layer;
+};
+
+/* Static Function: stackInterface
+ * params omits layer.
+ */
+Akari.Display.Effects.TrackMatte.stackInterface = function( layer, params )
+{
+  return Akari.Display.Effects.TrackMatte( Akari.Utilities.Factory.extend( params, { layer : layer } ) );
 };
 
 /* Class: ForceMotionBlur
@@ -2510,6 +2564,26 @@ Akari.Display.Effects.ForceMotionBlur = function( params )
   return layer;
 };
 
+/* Static Function: stackInterface
+ * params omits layers.
+ *
+ * sampleCount
+ *   [default] 6
+ *   Number of samples to use.
+ */
+Akari.Display.Effects.ForceMotionBlur.stackInterface = function( layer, params )
+{
+  var layers = [];
+
+  layers.push( layer );
+
+  for ( var i = 0; i < params.sampleCount; i ++ )
+  {
+    layers.push( Akari.Utilities.Factory.clone( layer ) );
+  }
+
+  return Akari.Display.Effects.ForceMotionBlur( Akari.Utilities.Factory.extend( params, { layers : layers } ) );
+};
 
 
 

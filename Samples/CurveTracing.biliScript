@@ -6,7 +6,7 @@
 
 // Fetch a global reference for Akari
 var Akari = Global._get( "__akari" );
-
+Akari.stop();
 
 // Import namespaces by extending this closure
 Akari.Utilities.Factory.extend( this, Akari.Utilities );
@@ -48,54 +48,52 @@ var mainComp = MainComposition(
         return shp;
       }()
     }),
-    Effects.ForceMotionBlur(
-    {
-      layers : Factory.replicate( Layer, 16, function() {
-        return [
+    Effects.EffectStack(
+      Layer(
+      {
+        source : Anchor({ source : Solid({ width : 100, height : 100, color : 0x0000FF }) }),
+
+        properties :
         {
-          source : Anchor({ source : Solid({ width : 100, height : 100, color : 0x0000FF }) }),
-
-          properties :
+          position : CurveTrace(
           {
-            position : CurveTrace(
+            curve : spline,
+            animation : KeyframesBind(
             {
-              curve : spline,
-              animation : KeyframesBind(
-              {
-                keyframes :
-                [
-                  Keyframe({ time : 0, value : 0, interpolation : Interpolation.cubic.easeOut }),
-                  Keyframe({ time : 2000, value : 1, interpolation : Interpolation.cubic.easeIn }),
-                  Keyframe({ time : 4000, value : 0 })
-                ],
-                
-                // This mode repeats the keyframes automatically
-                mode : KeyframesBindMode.repeat
-              }),
-              mode : "lengthProportion"
+              keyframes :
+              [
+                Keyframe({ time : 0, value : 0, interpolation : Interpolation.cubic.easeOut }),
+                Keyframe({ time : 2000, value : 1, interpolation : Interpolation.cubic.easeIn }),
+                Keyframe({ time : 4000, value : 0 })
+              ],
+              
+              // This mode repeats the keyframes automatically
+              mode : KeyframesBindMode.repeat
             }),
+            mode : "lengthProportion"
+          }),
 
-            x : Binder.Link(
+          x : Binder.Link(
+          {
+            name : "position",
+            linkFunc : function( v )
             {
-              name : "position",
-              linkFunc : function( v )
-              {
-                return v[ 0 ];
-              }
-            }),
+              return v[ 0 ];
+            }
+          }),
 
-            y : Binder.Link(
+          y : Binder.Link(
+          {
+            name : "position",
+            linkFunc : function( v )
             {
-              name : "position",
-              linkFunc : function( v )
-              {
-                return v[ 1 ];
-              }
-            })
-          }
-        }];
-      } )
-    })
+              return v[ 1 ];
+            }
+          })
+        }
+      }),
+      [[ Effects.ForceMotionBlur, { sampleCount : 6 } ]]
+    )
   ]
 });
 
