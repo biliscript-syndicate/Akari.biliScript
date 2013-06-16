@@ -19,6 +19,9 @@ Akari.Display = {};
  * properties
  *   [default] {}
  *   An Object, containing values or Bindings for each AS3 property.
+ * effects
+ *   Array( [ Constructor effect, PlainObject params ] ). Effects should have an stackInterface that handles pipelining.
+ *   stackInterface should be a Function( Layer, PlainObject params ) that incorporates the missing Layer parameter into params and calls effect Constructor.
  */
 Akari.Display.Layer = function( params )
 {
@@ -68,6 +71,15 @@ Akari.Display.Layer = function( params )
       return Akari.Display.Layer( Akari.Utilities.Factory.clone( params ) );
     }
   };
+
+  // effect stack support
+  if ( params.effects )
+  {
+    for ( var i = 0; i < params.effects.length; i ++ )
+    {
+      layer = params.effects[ i ][ 0 ].stackInterface( layer, params.effects[ i ][ 1 ] );
+    }
+  }
   
   // Update Layer for a first time to prevent flashing
   layer.update( params.inPoint );
@@ -97,6 +109,9 @@ Akari.Display.Layer = function( params )
  * properties
  *   [default] {}
  *   An Object, containing values or Bindings for each AS3 property.
+ * effects
+ *   Array( [ Constructor effect, PlainObject params ] ). Effects should have an stackInterface that handles pipelining.
+ *   stackInterface should be a Function( Layer, PlainObject params ) that incorporates the missing Layer parameter into params and calls effect Constructor.
  */
 Akari.Display.DynamicSourceLayer = function( params )
 {
@@ -146,6 +161,15 @@ Akari.Display.DynamicSourceLayer = function( params )
   {
     return Akari.Display.DynamicSourceLayer( Akari.Utilities.Factory.clone( params ) );
   };
+
+  // effect stack support
+  if ( params.effects )
+  {
+    for ( var i = 0; i < params.effects.length; i ++ )
+    {
+      layer = params.effects[ i ][ 0 ].stackInterface( layer, params.effects[ i ][ 1 ] );
+    }
+  }
   
   // Update Layer for a first time to prevent flashing
   layer.update( params.inPoint );

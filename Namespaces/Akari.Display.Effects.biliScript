@@ -8,27 +8,6 @@
 
 Akari.Display.Effects = {};
 
-/* Class: EffectStack
- * A more intuitive way to apply effects. Passes the original layer down a stack of effect layers.
- *
- * layer
- *   The original.
- * effects
- *   Array( [ Constructor effect, PlainObject params ] ). Effects should have an stackInterface that handles pipelining.
- *   stackInterface should be a Function( Layer, PlainObject params ) that incorporates the missing Layer parameter into params and calls effect Constructor.
- */
-Akari.Display.Effects.EffectStack = function( layer, effects )
-{
-  var currentLayer = layer;
-
-  for ( var i = 0; i < effects.length; i ++ )
-  {
-    currentLayer = effects[ i ][ 0 ].stackInterface( currentLayer, effects[ i ][ 1 ] );
-  }
-
-  return currentLayer;
-};
-
 /* Class: TrackMatte
  * Use another layer as a mask.
  *
