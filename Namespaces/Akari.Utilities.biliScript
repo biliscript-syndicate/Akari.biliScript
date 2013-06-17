@@ -274,7 +274,6 @@ Akari.Utilities.Binder = function()
     foreach( params.properties, function( key, obj )
     {
       var changeType = null;
-      var dependency = [];
       var value = null;
 
       if ( typeof( obj ) === "function" )
@@ -283,7 +282,6 @@ Akari.Utilities.Binder = function()
       }
       else if ( obj.hasOwnProperty( "linkFunc" ) )
       {
-        dependency = obj.names;
         changeType = obj.linkFunc ? "linkFunc" : "link";
       }
       else if ( obj.hasOwnProperty( "multiFunc" ) )
@@ -295,8 +293,38 @@ Akari.Utilities.Binder = function()
         value = obj;
       }
 
-      registry.push( [ key, obj, changeType, dependency, value ] );
+      registry.push( [ key, obj, changeType, [], value ] );
     });
+
+    // second pass generates dependency
+    for ( var k = registry.length; k --; )
+    {
+      lookup[ registry[ k ][ 0 ] ] = k;
+    }
+
+    for ( var k = registry.length; k --; )
+    {
+      if ( registry[ k ][ 2 ] === "linkFunc" || registry[ k ][ 2 ] === "link" )
+      {
+        var dependency = [];
+        var names = [ registry[ k ][ 1 ].names ];
+
+        while ( names.length > 0 )
+        {
+          var currentNames = names.pop();
+          dependency = dependency.concat( currentNames );
+          for ( var n = currentNames.length; n --; )
+          {
+            if ( registry[ 0 + lookup[ "" + currentNames[ n ] ] ][ 2 ] === "linkFunc" || registry[ 0 + lookup[ "" + currentNames[ n ] ] ][ 2 ] === "link" )
+            {
+              names.push( registry[ 0 + lookup[ "" + currentNames[ n ] ] ][ 1 ].names );
+            }
+          }
+        }
+
+        registry[ k ][ 3 ] = dependency;
+      }
+    }
 
     // sort by dependency
     registry.sort( function( a, b )
