@@ -99,7 +99,7 @@ Akari.Utilities = {};
 
 /* Static Class: Factory
  * Provides functions for creating and manipulating objects.
- * Legacy name used because this was once an actual factory. (See : 2012/11/21 Update)
+ * Legacy name used because this was once an actual factory. (See: 2012/11/21 Update)
  */
 Akari.Utilities.Factory =
 {
@@ -366,7 +366,6 @@ Akari.Utilities.Binder = function()
     foreach( params.properties, function( key, obj )
     {
       var changeType = null;
-      var dependency = [];
       var value = null;
 
       if ( typeof( obj ) === "function" )
@@ -375,7 +374,6 @@ Akari.Utilities.Binder = function()
       }
       else if ( obj.hasOwnProperty( "linkFunc" ) )
       {
-        dependency = obj.names;
         changeType = obj.linkFunc ? "linkFunc" : "link";
       }
       else if ( obj.hasOwnProperty( "multiFunc" ) )
@@ -387,8 +385,38 @@ Akari.Utilities.Binder = function()
         value = obj;
       }
 
-      registry.push( [ key, obj, changeType, dependency, value ] );
+      registry.push( [ key, obj, changeType, [], value ] );
     });
+
+    // second pass generates dependency
+    for ( var k = registry.length; k --; )
+    {
+      lookup[ registry[ k ][ 0 ] ] = k;
+    }
+
+    for ( var k = registry.length; k --; )
+    {
+      if ( registry[ k ][ 2 ] === "linkFunc" || registry[ k ][ 2 ] === "link" )
+      {
+        var dependency = [];
+        var names = [ registry[ k ][ 1 ].names ];
+
+        while ( names.length > 0 )
+        {
+          var currentNames = names.pop();
+          dependency = dependency.concat( currentNames );
+          for ( var n = currentNames.length; n --; )
+          {
+            if ( registry[ 0 + lookup[ "" + currentNames[ n ] ] ][ 2 ] === "linkFunc" || registry[ 0 + lookup[ "" + currentNames[ n ] ] ][ 2 ] === "link" )
+            {
+              names.push( registry[ 0 + lookup[ "" + currentNames[ n ] ] ][ 1 ].names );
+            }
+          }
+        }
+
+        registry[ k ][ 3 ] = dependency;
+      }
+    }
 
     // sort by dependency
     registry.sort( function( a, b )
@@ -511,6 +539,231 @@ Akari.Utilities.Binder = function()
   return binderClass;
 }();
 
+/* Static Class: Vector
+ * Provides functions for vector operations.
+ */
+Akari.Utilities.Vector =
+{
+  add : function()
+  {
+    var dimension = arguments[ 0 ].length;
+    var result = [];
+    for ( var d = 0; d < dimension; d ++ )
+    {
+      result[ d ] = arguments[ 0 ][ d ];
+    }
+
+    for ( var i = 1; i < arguments.length; i ++ )
+    {
+      for ( var d = 0; d < dimension; d ++ )
+      {
+        result[ d ] += arguments[ i ][ d ];
+      }
+    }
+
+    return result;
+  },
+
+  subtract : function( a, b )
+  {
+    var dimension = a.length;
+    var result = [];
+
+    for ( var d = 0; d < dimension; d ++ )
+    {
+      result[ d ] = a[ d ] - b[ d ];
+    }
+
+    return result;
+  },
+
+  dot : function( a, b )
+  {
+    var dimension = a.length;
+    var result = 0;
+
+    for ( var d = 0; d < dimension; d ++ )
+    {
+      result += a[ d ] * b[ d ];
+    }
+
+    return result;
+  },
+
+  scale : function( v, s )
+  {
+    var dimension = v.length;
+    var result = [];
+
+    for ( var d = 0; d < dimension; d ++ )
+    {
+      result[ d ] = v[ d ] * s;
+    }
+
+    return result;
+  },
+
+  length : function( v )
+  {
+    var dimension = v.length;
+    var result = 0;
+
+    for ( var d = 0; d < dimension; d ++ )
+    {
+      result += v[ d ] * v[ d ];
+    }
+
+    result = Math.sqrt( result );
+
+    return result;
+  },
+
+  unit : function( v )
+  {
+    return this.scale( v, 1 / this.length( v ) );
+  },
+
+  angle : function( a, b )
+  {
+    return Math.acos( this.dot( a, b ) / ( this.length( a ) * this.length( b ) ) );
+  }
+};
+
+/* Static Class: Randomizer
+ * Provides functions creating randomizers by user provided seed.
+ */
+Akari.Utilities.Randomizer = function()
+{
+  // Common mixin for all types
+  var randomizerMixin =
+  {
+    integer : function( min, max )
+    {
+      var t = this.uniform();
+      return Math.floor( min + t * ( max - min ) );
+    },
+    gaussian : function()
+    {
+      var store = null;
+
+      return function()
+      {
+        if ( store === null )
+        {
+          var x1 = this.uniform();
+          var x2 = this.uniform();
+
+          var t1 = Math.sqrt( -2 * Math.log( x1 ) );
+          var t2 = 2 * Math.PI * x2;
+
+          store = t1 * Math.sin( t2 );
+          return t1 * Math.cos( t2 );
+        }
+        else
+        {
+          var ret = store;
+          store = null;
+          return ret;
+        }
+      };
+    }(),
+
+    vector : function( dimension )
+    {
+      var vector = [];
+      var t;
+      var len = 0;
+
+      for ( var i = dimension; i --; )
+      {
+        t = this.gaussian();
+        vector[ i ] = t;
+        len += t * t;
+      }
+
+      len = Math.sqrt( len );
+
+      for ( var i = dimension; i --; )
+      {
+        vector[ i ] = vector[ i ] / len;
+      }
+
+      return vector;
+    }
+  };
+
+  var randomizerNs = 
+  {
+    createNative : function()
+    {
+      return Akari.Utilities.Factory.extend(
+      {
+        uniform : Math.random
+      }, randomizerMixin );
+    },
+
+    createLCG : function( seed )
+    {
+      var seed = seed;
+
+      return Akari.Utilities.Factory.extend(
+      {
+        uniform : function()
+        {
+          seed = ( 0x343FD * seed + 0x269EC3 ) % 0x100000000;
+          return ( ( seed & 0x7FFF0000 ) >> 16 ) / 0x8000;
+        }
+      }, randomizerMixin );
+    },
+
+    createTwister : function( seed )
+    {
+      var numbers = [];
+      var index = 0;
+
+      numbers[ 0 ] = seed;
+      for ( var i = 1; i < 624; i ++ )
+      {
+        numbers[ i ] = ( 0x6C078965 * ( numbers[ i - 1 ] ^ ( numbers[ i - 1 ] >>> 30 ) ) + i ) & 0xFFFFFFFF;
+      }
+
+      return Akari.Utilities.Factory.extend(
+      {
+        uniform : function()
+        {
+          if ( index > 623 )
+          {
+            for ( var k = 0; k < 624; k ++ )
+            {
+              var y = ( numbers[ k ] & 0x80000000 ) + ( numbers[ ( k + 1 ) % 624 ] & 0x7FFFFFFF );
+              numbers[ k ] = numbers[ ( k + 397 ) % 624 ] ^ ( y >>> 1 );
+              if ( y % 2 !== 0 )
+              {
+                numbers[ k ] = numbers[ k ] ^ 0x9908B0DF;
+              }
+            }
+
+            index = 0;
+          }
+
+          var n = numbers[ index ];
+          n = n ^ ( n >>> 11 );
+          n = n ^ ( ( n << 7 ) & 0x9D2C5680 );
+          n = n ^ ( ( n << 15 ) & 0xEFC60000 );
+          n = n ^ ( n >>> 18 );
+          index ++;
+
+          // force the value into unsigned
+          return ( n >>> 0 ) / 0x100000000;
+        }
+      }, randomizerMixin );
+    }
+  };
+
+  var defaultRandomizer = randomizerNs.createTwister( 810114514 );
+
+  return Akari.Utilities.Factory.extend( Akari.Utilities.Factory.extend( defaultRandomizer, randomizerMixin ), randomizerNs );
+}();
 
 
 /* Namespace: Akari.Animation
@@ -3014,6 +3267,322 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
   layer.update( params.inPoint );
   
   return layer;
+};
+
+
+
+Akari.Display.Three = {};
+
+/* Static Class: MatrixUtil
+ * Utility functions for creating matrices.
+ */
+Akari.Display.Three.MatrixUtil =
+{
+  lookAt : function( eye, target )
+  {
+    var matT = $.createMatrix3D([]);
+    var matR = $.createMatrix3D([]);
+
+    matT.appendTranslation( -eye[ 0 ], -eye[ 1 ], -eye[ 2 ] );
+
+    var dX = target[ 0 ] - eye[ 0 ];
+    var dY = target[ 1 ] - eye[ 1 ];
+    var dZ = target[ 2 ] - eye[ 2 ];
+    if ( dX !== 0 )
+    {
+      var yAng = Akari.Utilities.Vector.angle( [ 0, 1 ], [ dX, dZ ] ) * 180 / Math.PI;
+      matR.appendRotation( yAng * ( dX < 0 ? 1 : -1 ), $.createVector3D( 0, 1, 0 ) );
+      if ( dY !== 0 )
+      {
+        var xRot = Math.asin( dY / Math.sqrt( dX * dX + dY * dY + dZ * dZ ) ) * 180 / Math.PI;
+        matR.appendRotation( xRot, $.createVector3D( 1, 0, 0 ) );
+      }
+    }
+    else if ( dY !== 0 )
+    {
+      var xAng = - Akari.Utilities.Vector.angle( [ 0, 1 ], [ dY, dZ ] ) * 180 / Math.PI;
+      matR.appendRotation( xAng * ( dY < 0 ? 1 : -1 ), $.createVector3D( 1, 0, 0 ) );
+    }
+
+    return [ matT, matR ];
+  }
+};
+
+/* Class: ThreeContainer
+ * Utility class providing sorting.
+ *
+ * container
+ *   [default] Akari.root
+ *   Optional container sprite to base relative matrix on.
+ */
+Akari.Display.Three.ThreeContainer = function()
+{
+  var sortContainer = function( doc, cont, reg )
+  {
+    var identity = $.createMatrix3D(
+      [
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1
+      ]);
+    var transform = doc.transform.getRelativeMatrix3D( cont ) || identity;
+    var numChildren = doc.numChildren;
+
+    var vLocal = $.toNumberVector( [] );
+    var vWorld = $.toNumberVector( [] );
+    var children = [];
+    var childrenRef = [];
+
+    for ( var i = 0; i < numChildren; i ++ )
+    {
+      var child = doc.getChildAt( i );
+      var childTransform = child.transform.getRelativeMatrix3D( doc ) || identity;
+      var relData = this.getRelatedData( child );
+      var sortPoint = childTransform.transformVector( $.createVector3D( relData.sortOffsetX, relData.sortOffsetY, relData.sortOffsetZ ) );
+
+      vLocal.push( sortPoint.x );
+      vLocal.push( sortPoint.y );
+      vLocal.push( sortPoint.z );
+
+      // Using this later for sorting
+      children[ i ] = i;
+      childrenRef[ i ] = i;
+    }
+
+    transform.transformVectors( vLocal, vWorld );
+
+    // Trick sorting children with closure
+    children = children.sort( function( a, b )
+    {
+      return vWorld[ b * 3 + 2 ] - vWorld[ a * 3 + 2 ];
+    });
+
+    for ( var k = 0; k < numChildren; k ++ )
+    {
+      if ( children[ k ] !== childrenRef[ k ] )
+      {
+        doc.swapChildrenAt( childrenRef.indexOf( children[ k ] ), k );
+        childrenRef[ childrenRef.indexOf( children[ k ] ) ] = childrenRef[ k ];
+        childrenRef[ k ] = children[ k ];
+      }
+    }
+  };
+
+  return function( container )
+  {
+    var doc = Akari.Display.Sprite();
+    var cont = container || Akari.root;
+
+    // Plain object treat all DisplayObjects as the same key
+    var childLookup = [];
+    var relatedData = [];
+
+    return {
+      register : function( displayObject, params )
+      {
+        var obj = Akari.Utilities.Factory.extend(
+        {
+          sortOffsetX : 0,
+          sortOffsetY : 0,
+          sortOffsetZ : 0
+        }, params );
+
+        relatedData[ childLookup.length ] = obj;
+        childLookup[ childLookup.length ] = displayObject;
+
+        doc.addChild( displayObject );
+      },
+      getRelatedData : function( displayObject )
+      {
+        var index = childLookup.indexOf( displayObject );
+        return relatedData[ index ];
+      },
+      setRelatedData : function( displayObject, value )
+      {
+        var index = childLookup.indexOf( displayObject );
+        return ( relatedData[ index ] = value );
+      },
+      update : function()
+      {
+        sortContainer.apply( this, [ doc, cont, relatedData ] );
+      },
+      canvas : doc
+    };
+  };
+}();
+
+/* Class: Camera
+ *
+ * inPoint
+ * outPoint
+ * position
+ *   [default] [ 0, 0, 0 ]
+ * target
+ *   [default] [ 0, 0, 0 ]
+ * fov
+ *   [default] 55
+ */
+Akari.Display.Three.Camera = function( params )
+{
+  var properties = Akari.Utilities.Factory.extend(
+  {
+    inPoint : 0,
+    outPoint : 0,
+    position : [ 0, 0, 0 ],
+    target : [ 0, 0, 0 ],
+    fov : 55
+  }, params );
+  var valueHolder = {};
+  var binder = Akari.Utilities.Binder({ object : valueHolder, properties : properties, overridePathCheck : true });
+
+  var proj = clone( Akari.root.transform.perspectiveProjection );
+
+  return {
+    inPoint : properties.inPoint,
+    outPoint : properties.outPoint,
+
+    update : function( time )
+    {
+      binder.update( time );
+      var matrices = Akari.Display.Three.MatrixUtil.lookAt( valueHolder.position, valueHolder.target );
+      this.matrixT = matrices[ 0 ];
+      this.matrixR = matrices[ 1 ];
+
+      proj.fieldOfView = valueHolder.fov;
+      this.projection = proj;
+    },
+
+    clone : function()
+    {
+      return Akari.Display.Three.Camera( Akari.Utilities.Factory.clone( params ) );
+    }
+  };
+};
+
+/* Class: ThreeComposition < DynamicLayerSourceProvider
+ * 
+ * width
+ *   [default] $.width
+ *   A Number specifying viewport width.
+ * height
+ *   [default] $.height
+ *   A Number specifying viewport height.
+ * startTime
+ *   [default] 0
+ *   A Number, the time (in milliseconds) when the timeline starts.
+ * duration
+ *   [default] 60000
+ *   A Number, the length (in milliseconds) of the timeline.
+ * layers
+ *   [default] []
+ *   An Array of Layers, from top to bottom.
+ * cameras
+ *   [default] []
+ *   An Array of Cameras.
+ */
+Akari.Display.Three.ThreeComposition = function( params )
+{
+  var canvas = Akari.Display.Sprite();
+
+  // This will make all 2D stuff work on the resulting viewport: mask, filter, blendMode, etc.
+  var layerWrap = Akari.Display.Sprite();
+  var container = Akari.Display.Three.ThreeContainer( layerWrap );
+  layerWrap.addChild( container.canvas );
+  layerWrap.blendMode = "layer";
+  canvas.addChild( layerWrap );
+
+  var solidMask = Akari.Display.Solid({ width : params.width || $.width, height : params.height || $.height, color : 0x0 });
+  canvas.addChild( solidMask );
+  layerWrap.mask = solidMask;
+  
+  var layers = Akari.Utilities.Factory.collapse( params.layers || [] );
+  var i = 0;
+  
+  for ( i = 0; i < layers.length; i ++ )
+  {
+    container.register( layers[ i ].source, layers[ i ].relatedData );
+  }
+
+  var cameras = params.cameras || [];
+  var defaultCamera = Akari.Display.Three.Camera();
+
+  var centerMatrix = $.createMatrix3D(
+    [
+      1, 0, 0, 0,
+      0, 1, 0, 0,
+      0, 0, 1, 0,
+      0, 0, 0, 1
+    ]);
+  centerMatrix.appendTranslation( ( params.width || $.width ) / 2, ( params.height || $.height ) / 2, 0 );
+  var centerPoint = $.createVector3D( ( params.width || $.width ) / 2, ( params.height || $.height ) / 2, 0 );
+  
+  return
+  {
+    width : params.width || $.width,
+    height : params.height || $.height,
+    startTime : params.startTime || 0,
+    duration : params.duration || 60000,
+    layers : layers,
+    canvas : canvas,
+    
+    /* Function: update
+     * Updates the canvas to fit the timeline.
+     *
+     * time
+     *   A Number, the current time (in milliseconds) on the Composition's own timeline.
+     */
+    update : function( time )
+    {
+      // Check if Composition is active, otherwise update for borderline situations.
+      if ( time < startTime )
+        return this.update( startTime );
+      if ( time >= startTime + duration )
+        return this.update( startTime + duration - 1 );
+      
+      foreach( this.layers, function( key, object )
+      {
+        if ( !object.parent ) object.parent = this;
+        object.update( time );
+      });
+
+      // Using linear search to assure overlapping rules work for cameras just as with layers
+      var camera = defaultCamera;
+      for ( var i = cameras.length - 1; i >= 0; i -- )
+      {
+        if ( cameras[ i + 0 ].inPoint <= time && time < cameras[ i + 0 ].outPoint )
+        {
+          camera = cameras[ i + 0 ];
+          break;
+        }
+      }
+
+      camera.update( time );
+      var mat = camera.matrixT;
+      var proj = camera.projection;
+
+      var v = camera.matrixR.transformVector( centerPoint );
+      var p = proj.projectionCenter;
+      p.x = v.x;
+      p.y = v.y;
+      proj.projectionCenter = p;
+      layerWrap.transform.perspectiveProjection = proj;
+
+      mat.append( camera.matrixR );
+      mat.append( centerMatrix );
+      container.canvas.transform.matrix3D = mat;
+
+      // sort
+      container.update( time );
+    },
+    
+    /* Function: clone
+     */
+    clone : function()
+    {
+      return Akari.Display.Three.ThreeComposition( Akari.Utilities.Factory.clone( params ) );
+    }
+  };
 };
 
 

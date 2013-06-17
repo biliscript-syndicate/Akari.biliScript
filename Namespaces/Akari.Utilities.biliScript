@@ -7,7 +7,7 @@ Akari.Utilities = {};
 
 /* Static Class: Factory
  * Provides functions for creating and manipulating objects.
- * Legacy name used because this was once an actual factory. (See : 2012/11/21 Update)
+ * Legacy name used because this was once an actual factory. (See: 2012/11/21 Update)
  */
 Akari.Utilities.Factory =
 {
@@ -445,4 +445,230 @@ Akari.Utilities.Binder = function()
   };
   
   return binderClass;
+}();
+
+/* Static Class: Vector
+ * Provides functions for vector operations.
+ */
+Akari.Utilities.Vector =
+{
+  add : function()
+  {
+    var dimension = arguments[ 0 ].length;
+    var result = [];
+    for ( var d = 0; d < dimension; d ++ )
+    {
+      result[ d ] = arguments[ 0 ][ d ];
+    }
+
+    for ( var i = 1; i < arguments.length; i ++ )
+    {
+      for ( var d = 0; d < dimension; d ++ )
+      {
+        result[ d ] += arguments[ i ][ d ];
+      }
+    }
+
+    return result;
+  },
+
+  subtract : function( a, b )
+  {
+    var dimension = a.length;
+    var result = [];
+
+    for ( var d = 0; d < dimension; d ++ )
+    {
+      result[ d ] = a[ d ] - b[ d ];
+    }
+
+    return result;
+  },
+
+  dot : function( a, b )
+  {
+    var dimension = a.length;
+    var result = 0;
+
+    for ( var d = 0; d < dimension; d ++ )
+    {
+      result += a[ d ] * b[ d ];
+    }
+
+    return result;
+  },
+
+  scale : function( v, s )
+  {
+    var dimension = v.length;
+    var result = [];
+
+    for ( var d = 0; d < dimension; d ++ )
+    {
+      result[ d ] = v[ d ] * s;
+    }
+
+    return result;
+  },
+
+  length : function( v )
+  {
+    var dimension = v.length;
+    var result = 0;
+
+    for ( var d = 0; d < dimension; d ++ )
+    {
+      result += v[ d ] * v[ d ];
+    }
+
+    result = Math.sqrt( result );
+
+    return result;
+  },
+
+  unit : function( v )
+  {
+    return this.scale( v, 1 / this.length( v ) );
+  },
+
+  angle : function( a, b )
+  {
+    return Math.acos( this.dot( a, b ) / ( this.length( a ) * this.length( b ) ) );
+  }
+};
+
+/* Static Class: Randomizer
+ * Provides functions creating randomizers by user provided seed.
+ */
+Akari.Utilities.Randomizer = function()
+{
+  // Common mixin for all types
+  var randomizerMixin =
+  {
+    integer : function( min, max )
+    {
+      var t = this.uniform();
+      return Math.floor( min + t * ( max - min ) );
+    },
+    gaussian : function()
+    {
+      var store = null;
+
+      return function()
+      {
+        if ( store === null )
+        {
+          var x1 = this.uniform();
+          var x2 = this.uniform();
+
+          var t1 = Math.sqrt( -2 * Math.log( x1 ) );
+          var t2 = 2 * Math.PI * x2;
+
+          store = t1 * Math.sin( t2 );
+          return t1 * Math.cos( t2 );
+        }
+        else
+        {
+          var ret = store;
+          store = null;
+          return ret;
+        }
+      };
+    }(),
+
+    vector : function( dimension )
+    {
+      var vector = [];
+      var t;
+      var len = 0;
+
+      for ( var i = dimension; i --; )
+      {
+        t = this.gaussian();
+        vector[ i ] = t;
+        len += t * t;
+      }
+
+      len = Math.sqrt( len );
+
+      for ( var i = dimension; i --; )
+      {
+        vector[ i ] = vector[ i ] / len;
+      }
+
+      return vector;
+    }
+  };
+
+  var randomizerNs = 
+  {
+    createNative : function()
+    {
+      return Akari.Utilities.Factory.extend(
+      {
+        uniform : Math.random
+      }, randomizerMixin );
+    },
+
+    createLCG : function( seed )
+    {
+      var seed = seed;
+
+      return Akari.Utilities.Factory.extend(
+      {
+        uniform : function()
+        {
+          seed = ( 0x343FD * seed + 0x269EC3 ) % 0x100000000;
+          return ( ( seed & 0x7FFF0000 ) >> 16 ) / 0x8000;
+        }
+      }, randomizerMixin );
+    },
+
+    createTwister : function( seed )
+    {
+      var numbers = [];
+      var index = 0;
+
+      numbers[ 0 ] = seed;
+      for ( var i = 1; i < 624; i ++ )
+      {
+        numbers[ i ] = ( 0x6C078965 * ( numbers[ i - 1 ] ^ ( numbers[ i - 1 ] >>> 30 ) ) + i ) & 0xFFFFFFFF;
+      }
+
+      return Akari.Utilities.Factory.extend(
+      {
+        uniform : function()
+        {
+          if ( index > 623 )
+          {
+            for ( var k = 0; k < 624; k ++ )
+            {
+              var y = ( numbers[ k ] & 0x80000000 ) + ( numbers[ ( k + 1 ) % 624 ] & 0x7FFFFFFF );
+              numbers[ k ] = numbers[ ( k + 397 ) % 624 ] ^ ( y >>> 1 );
+              if ( y % 2 !== 0 )
+              {
+                numbers[ k ] = numbers[ k ] ^ 0x9908B0DF;
+              }
+            }
+
+            index = 0;
+          }
+
+          var n = numbers[ index ];
+          n = n ^ ( n >>> 11 );
+          n = n ^ ( ( n << 7 ) & 0x9D2C5680 );
+          n = n ^ ( ( n << 15 ) & 0xEFC60000 );
+          n = n ^ ( n >>> 18 );
+          index ++;
+
+          // force the value into unsigned
+          return ( n >>> 0 ) / 0x100000000;
+        }
+      }, randomizerMixin );
+    }
+  };
+
+  var defaultRandomizer = randomizerNs.createTwister( 810114514 );
+
+  return Akari.Utilities.Factory.extend( Akari.Utilities.Factory.extend( defaultRandomizer, randomizerMixin ), randomizerNs );
 }();
