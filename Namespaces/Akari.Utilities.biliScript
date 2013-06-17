@@ -236,106 +236,94 @@ Akari.Utilities.Binder = function()
 {
   var binderClass = function( params )
   {
-    var needBinding = {};
-    var linkRegister = {};
-    
-    var pathCheck = function( object, name )
-    {
-      if ( params.overridePathCheck ) return true;
-      
-      var dotIndex = name.indexOf(".");
-      if ( dotIndex < 0 )
-      {
-        return object.hasOwnProperty( name );
-      }
-      else
-      {
-        return object.hasOwnProperty( name.substring( 0, dotIndex ) ) && pathCheck( object[ name.substring( 0, dotIndex ) ], name.substring( dotIndex + 1 ));
-      }
-    };
-    
+    var registry = [];
+    var lookup = {};
+    var needRefresh = true;
+
     var setParam = function( object, name, value )
     {
       var dotIndex = name.indexOf(".");
       if ( dotIndex < 0 )
       {
-        object[ name ] = value;
-      }
-      else
-      {
-        setParam( object[ name.substring( 0, dotIndex ) ], name.substring( dotIndex + 1 ), value );
-      }
-    };
-    
-    var setBinding = function( name, value )
-    {
-      // Check if path exists
-      if ( !pathCheck( params.object, name ) )
-      {
-        return;
-      }
-      
-      // Check if binding every frame is needed
-      if ( typeof( value ) === "function" )
-      {
-        needBinding[ name ] = value;
-      }
-      else
-      {
-        setParam( params.object, name, value );
-      }
-    };
-    
-    var setBindings = function( key, obj )
-    {
-      // Check if objs are Links or Sequences
-      if ( obj.hasOwnProperty( "linkFunc" ) )
-      {
-        // Check if a function is present
-        if ( obj.linkFunc )
+        if ( params.overridePathCheck || object.hasOwnProperty( name ) )
         {
-          if ( typeof( params.properties[ obj.name.toString() ] ) === "function" )
+          object[ name ] = value;
+        }
+      }
+      else
+      {
+        var midName = name.substring( 0, dotIndex );
+        if ( params.overridePathCheck )
+        {
+          if ( !object.hasOwnProperty( midName ) )
           {
-            setBinding( key, function( time )
-            {
-              if ( ! linkRegister.hasOwnProperty( obj.name.toString() ) )
-              {
-                linkRegister[ obj.name.toString() ] = params.properties[ obj.name.toString() ].apply( this, [ time ] );
-              }
-              var value = linkRegister[ obj.name.toString() ];
-              return obj.linkFunc.apply( this, [ value, time ] );
-            });
+            object[ midName ] = {};
           }
-          else
-          {
-            setBinding( key, function( time )
-            {
-              return obj.linkFunc.apply( this, [ params.properties[ obj.name.toString() ], time ] );
-            });
-          }
+          setParam( object[ midName ], name.substring( dotIndex + 1 ), value );
         }
         else
         {
-          setBinding( key, params.properties[ obj.name.toString() ] );
+          if ( object.hasOwnProperty( midName ) )
+          {
+            setParam( object[ midName ], name.substring( dotIndex + 1 ), value );
+          }
         }
-      }
-      else if ( obj.hasOwnProperty( "sequence" ) )
-      {
-        // Set sequence first
-        for ( var i = 0; i < obj.sequence.length; i ++ )
-        {
-          setBindings( obj.sequence[ i ][ 0 ], obj.sequence[ i ][ 1 ] );
-        }
-        
-        setBindings( key, obj.value );
-      }
-      else
-      {
-        setBinding( key, obj );
       }
     };
     
-    foreach( params.properties, setBindings );
+    foreach( params.properties, function( key, obj )
+    {
+      var changeType = null;
+      var dependency = [];
+      var value = null;
+
+      if ( typeof( obj ) === "function" )
+      {
+        changeType = "func";
+      }
+      else if ( obj.hasOwnProperty( "linkFunc" ) )
+      {
+        dependency = obj.names;
+        changeType = obj.linkFunc ? "linkFunc" : "link";
+      }
+      else if ( obj.hasOwnProperty( "multiFunc" ) )
+      {
+        changeType = "multi";
+      }
+      else
+      {
+        value = obj;
+      }
+
+      registry.push( [ key, obj, changeType, dependency, value ] );
+    });
+
+    // sort by dependency
+    registry.sort( function( a, b )
+    {
+      if ( a[ 3 ].indexOf( b[ 0 ] ) >= 0 )
+      {
+        return 1;
+      }
+      if ( b[ 3 ].indexOf( a[ 0 ] ) >= 0 )
+      {
+        return -1;
+      }
+      if ( a[ 2 ] && !b[ 2 ] )
+      {
+        return 1;
+      }
+      else if ( b[ 2 ] && !a[ 2 ] )
+      {
+        return -1;
+      }
+      return 0;
+    });
+
+    for ( var k = registry.length; k --; )
+    {
+      lookup[ registry[ k ][ 0 ] ] = k;
+    }
     
     return
     {
@@ -351,11 +339,42 @@ Akari.Utilities.Binder = function()
        */
       update : function( time, scope )
       {
-        linkRegister = {};
-        foreach( needBinding, function( key, obj )
+        for ( var i = 0; i < registry.length; i ++ )
         {
-          setParam( params.object, key, obj.apply( scope || params.object, [ time ] ) );
-        });
+          switch ( registry[ i ][ 2 ] )
+          {
+            case "func" :
+              registry[ i ][ 4 ] = registry[ i ][ 1 ].apply( scope || params.object, [ time ] );
+              break;
+            case "link" :
+              // should be computed already
+              registry[ i ][ 4 ] = registry[ 0 + lookup[ "" + registry[ i ][ 3 ][ 0 ] ] ][ 4 ];
+              break;
+            case "linkFunc" :
+              var funcArgs = [];
+              var names = registry[ i ][ 3 ];
+
+              for ( var a = 0; a < names.length; a ++ )
+              {
+                funcArgs.push( registry[ 0 + lookup[ "" + names[ a ] ] ][ 4 ] );
+              }
+
+              funcArgs.push( time );
+
+              registry[ i ][ 4 ] = registry[ i ][ 1 ].linkFunc.apply( scope || params.object, funcArgs );
+              break;
+            case "multi" :
+              registry[ i ][ 4 ] = registry[ i ][ 1 ].multiFunc.apply( scope || params.object, [ time ] );
+              var names = registry[ i ][ 1 ].names;
+
+              for ( var a = 0; a < names.length; a ++ )
+              {
+                setParam( params.object, names[ a ], registry[ i ][ 4 ][ a ] );
+              }
+              break;
+          }
+          setParam( params.object, registry[ i ][ 0 ], registry[ i ][ 4 ] );
+        }
       }
     };
   };
@@ -365,6 +384,9 @@ Akari.Utilities.Binder = function()
    *
    * name
    *   The name of the property to link.
+   * names
+   *   [default] [ name ]
+   *   Array of strings. Overrides name if specified.
    * linkFunc
    *   [default] null
    *   A Function accepting input & time from binder or null indicating copy.
@@ -373,25 +395,24 @@ Akari.Utilities.Binder = function()
   {
     return
     {
-      name : params.name,
+      names : params.names || [ params.name ],
       linkFunc : params.linkFunc || null
     };
   };
 
-  /* Class: Binder.Sequence
-   * Represents a sequential bind, for properties that depend on other properties that need to be set earlier.
+  /* Class: Binder.Multi
    *
-   * sequence
-   *   An Array containing name value pairs.
-   * value
-   *   The value of the property to set after executing sequence.
+   * names
+   *   Array of strings.
+   * func
+   *   A Function returning an array of values corresponding to names.
    */
-  binderClass.Sequence = function( params )
+  binderClass.Multi = function( params )
   {
     return
     {
-      sequence : params.sequence,
-      value : params.value
+      names : params.names,
+      multiFunc : params.func
     };
   };
   
