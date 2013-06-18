@@ -7,7 +7,7 @@
 
 // Fetch a global reference for Akari
 var Akari = Global._get( "__akari" );
-
+Akari.stop();
 // Import namespaces by extending this closure
 Akari.Utilities.Factory.extend( this, Akari.Utilities );
 Factory.extend( this, Akari.Display );

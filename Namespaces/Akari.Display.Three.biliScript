@@ -138,7 +138,13 @@ Akari.Display.Three.ThreeContainer = function()
       },
       update : function()
       {
+        ////#IF (IST DEBUG)
+        Akari.intoProcess( Akari.processID.SORT );
+        ////#ENDIF
         sortContainer.apply( this, [ doc, cont, relatedData ] );
+        ////#IF (IST DEBUG)
+        Akari.outOfProcess();
+        ////#ENDIF
       },
       canvas : doc
     };
@@ -274,9 +280,18 @@ Akari.Display.Three.ThreeComposition = function( params )
       if ( time >= startTime + duration )
         return this.update( startTime + duration - 1 );
       
+      ////#IF (IST DEBUG)
+      Akari.intoProcess( Akari.processID.COMP );
+      ////#ENDIF
       for ( var i = layers.length; i --; )
       {
+        ////#IF (IST DEBUG)
+        Akari.intoProcess( Akari.processID.LAYER );
+        ////#ENDIF
         layers[ 0 + i ].update( time );
+        ////#IF (IST DEBUG)
+        Akari.outOfProcess();
+        ////#ENDIF
       }
 
       // Using linear search to assure overlapping rules work for cameras just as with layers
@@ -307,6 +322,9 @@ Akari.Display.Three.ThreeComposition = function( params )
 
       // sort
       container.update( time );
+      ////#IF (IST DEBUG)
+      Akari.outOfProcess();
+      ////#ENDIF
     },
     
     /* Function: clone

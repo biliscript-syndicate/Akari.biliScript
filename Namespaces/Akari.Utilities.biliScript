@@ -375,6 +375,9 @@ Akari.Utilities.Binder = function()
        */
       update : function( time, scope )
       {
+        ////#IF (IST DEBUG)
+        Akari.intoProcess( Akari.processID.BINDER );
+        ////#ENDIF
         for ( var i = 0; i < registry.length; i ++ )
         {
           switch ( registry[ i ][ 2 ] )
@@ -411,6 +414,9 @@ Akari.Utilities.Binder = function()
           }
           setParam( params.object, registry[ i ][ 0 ], registry[ i ][ 4 ] );
         }
+        ////#IF (IST DEBUG)
+        Akari.outOfProcess();
+        ////#ENDIF
       }
     };
   };

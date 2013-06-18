@@ -243,6 +243,9 @@ Akari.Animation.Polyline = function()
 
   var evaluateAtLength = function( length )
   {
+    ////#IF (IST DEBUG)
+    Akari.intoProcess( Akari.processID.CURVE );
+    ////#ENDIF
     var i = 0;
 
     if ( length < 0 )
@@ -301,6 +304,9 @@ Akari.Animation.Polyline = function()
       ret.unshift( p2[ d ] * t + p1[ d ] * ( 1 - t ) );
     }
 
+    ////#IF (IST DEBUG)
+    Akari.outOfProcess();
+    ////#ENDIF
     return ret;
   };
 
@@ -1111,6 +1117,9 @@ Akari.Animation.KeyframesBind = function( params )
   // Return the binding function
   return function( time )
   {
+    ////#IF (IST DEBUG)
+    Akari.intoProcess( Akari.processID.KEYFR );
+    ////#ENDIF
     var newTime = applyRangeBehavior ? applyRangeBehavior( time ) : time;
     
     var currentIndex = findCurrentIndex( newTime );
@@ -1124,10 +1133,16 @@ Akari.Animation.KeyframesBind = function( params )
       
       if ( currentKey.mode === Akari.Animation.KeyframeMode.affectNext )
       {
+        ////#IF (IST DEBUG)
+        Akari.outOfProcess();
+        ////#ENDIF
         return currentKey.interpolation( tFactor, currentKey.value, nextKey.value );
       }
       else if ( currentKey.mode === Akari.Animation.KeyframeMode.useNext )
       {
+        ////#IF (IST DEBUG)
+        Akari.outOfProcess();
+        ////#ENDIF
         return nextKey.interpolation( tFactor, currentKey.value, nextKey.value );
       }
       else if ( currentKey.mode === Akari.Animation.KeyframeMode.weightBlend )
@@ -1138,11 +1153,17 @@ Akari.Animation.KeyframesBind = function( params )
         var weight1 = currentKey.weight * ( 1 - tFactor );
         var weight2 = nextKey.weight * tFactor;
         
+        ////#IF (IST DEBUG)
+        Akari.outOfProcess();
+        ////#ENDIF
         return ( value1 * weight1 + value2 * weight2 ) / ( weight1 + weight2 );
       }
     }
     else
     {
+      ////#IF (IST DEBUG)
+      Akari.outOfProcess();
+      ////#ENDIF
       // When there is not a next keyframe for some reason, just return the current value
       return currentKey.value;
     }
@@ -1281,7 +1302,6 @@ Akari.Animation.WiggleKeyframes = function( params )
 Akari.Animation.CurveTrace = function( params )
 {
   var mode = params.mode || "lengthProportion";
-
 
   if ( mode === "lengthProportion" )
   {

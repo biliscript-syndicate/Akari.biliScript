@@ -20,6 +20,13 @@ Akari.execute = function( mainComp )
   
   // Set global value to indicate usage
   Global._set( "__isExecuted_akari", true );
+
+  ////#IF (IST DEBUG)
+  ////#IF (IST PERF_VISUAL)
+  Akari.root.addChild( Akari.performanceGraph );
+  ////#ENDIF
+  Akari.root.addChild( Akari.performanceDisplay );
+  ////#ENDIF
 };
 
 /* Function: stop
@@ -32,6 +39,12 @@ Akari.stop = function()
     ( Global._get("__mainComp_akari") ).detach();
     Global._set( "__mainComp_akari", null );
     Global._set( "__isExecuted_akari", null );
+    ////#IF (IST DEBUG)
+    Akari.root.removeChild( Akari.performanceDisplay );
+    ////#IF (IST PERF_VISUAL)
+    Akari.root.removeChild( Akari.performanceGraph );
+    ////#ENDIF
+    ////#ENDIF
   }
 };
 
@@ -70,12 +83,90 @@ Akari.root = function()
 
 ////#IF (IST DEBUG)
 
-Akari.performanceDisplay = function()
+( function()
 {
-  var perfMon = $.createComment( "", { lifeTime : 1, fontsize : 12, color : 0xFFFFFF } );
-  ScriptManager.popEl( perfMon );
-  perfMon.transform.matrix3D = null;
-  return perfMon;
-}();
+  var names = [ "FLASH", "BINDER", "LAYER", "COMP", "KEYFR", "CURVE", "SORT" ];
+  var colors = [ 0xFFFFFF, 0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0x00FFFF, 0xFF00FF ];
+  var stack = [];
+  var finishTimes = [];
+  var baseTime = getTimer();
+  var offsetTime = 0;
+
+  Akari.performanceDisplay = function()
+  {
+    var perfMon = $.createComment( "", { lifeTime : 1, fontsize : 12, color : 0xFFFFFF } );
+    ScriptManager.popEl( perfMon );
+    perfMon.transform.matrix3D = null;
+    return perfMon;
+  }();
+
+  ////#IF (IST PERF_VISUAL)
+  Akari.performanceGraph = function()
+  {
+    var perfMon = $.createShape( { lifeTime : 1 } );
+    ScriptManager.popEl( perfMon );
+    perfMon.transform.matrix3D = null;
+    return perfMon;
+  }();
+  ////#ENDIF
+
+  Akari.updatePerformanceDisplay = function()
+  {
+    var offsetTime = getTimer() - baseTime;
+    var remainTime = offsetTime;
+    var processTime = 0;
+
+    Akari.performanceDisplay.text = "";
+    ////#IF (IST PERF_VISUAL)
+    Akari.performanceGraph.graphics.clear();
+    var graphPos = 0;
+    ////#ENDIF
+    for ( var i = 0; i < names.length; i ++ )
+    {
+      processTime = finishTimes[ 0 + i ];
+      if ( processTime > 0 )
+      {
+        Akari.performanceDisplay.text += Math.floor( processTime * 100 / offsetTime ) + "% " + names[ 0 + i ] + " " + processTime + "\n";
+        ////#IF (IST PERF_VISUAL)
+        Akari.performanceGraph.graphics.beginFill( colors[ i ] );
+        Akari.performanceGraph.graphics.drawRect( ( offsetTime - remainTime ) * $.width / offsetTime, 0, processTime * $.width / offsetTime, 8 );
+        Akari.performanceGraph.graphics.endFill();
+        ////#ENDIF
+        remainTime -= processTime;
+      }
+    }
+
+    if( remainTime > 0 )
+    {
+      Akari.performanceDisplay.text += Math.floor( remainTime * 100 / offsetTime ) + "% Unexplained " + remainTime;
+    }
+
+    stack = [];
+    finishTimes = [];
+    baseTime = getTimer();
+  };
+
+  Akari.intoProcess = function( id )
+  {
+    stack.push( [ id, getTimer(), 0 ] );
+  };
+
+  Akari.outOfProcess = function()
+  {
+    var data = stack.pop();
+    if ( data )
+    {
+      var delta = getTimer() - data[ 1 ] - data[ 2 ];
+      if ( stack.length > 0 )
+      {
+        stack[ stack.length - 1 ][ 2 ] += delta + data[ 2 ];
+      }
+      finishTimes[ 0 + data[ 0 ] ] = finishTimes[ 0 + data[ 0 ] ] ? delta + finishTimes[ 0 + data[ 0 ] ] : delta;
+    }
+  };
+
+  Akari.processID = { FLASH : 0, BINDER : 1, LAYER : 2, COMP : 3, KEYFR : 4, CURVE : 5, SORT : 6 };
+
+} )();
 
 ////#ENDIF

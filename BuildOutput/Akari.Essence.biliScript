@@ -44,6 +44,7 @@ Akari.execute = function( mainComp )
   
   // Set global value to indicate usage
   Global._set( "__isExecuted_akari", true );
+
 };
 
 /* Function: stop
@@ -56,6 +57,7 @@ Akari.stop = function()
     ( Global._get("__mainComp_akari") ).detach();
     Global._set( "__mainComp_akari", null );
     Global._set( "__isExecuted_akari", null );
+
   }
 };
 
@@ -467,6 +469,7 @@ Akari.Utilities.Binder = function()
        */
       update : function( time, scope )
       {
+
         for ( var i = 0; i < registry.length; i ++ )
         {
           switch ( registry[ i ][ 2 ] )
@@ -503,6 +506,7 @@ Akari.Utilities.Binder = function()
           }
           setParam( params.object, registry[ i ][ 0 ], registry[ i ][ 4 ] );
         }
+
       }
     };
   };
@@ -786,11 +790,14 @@ Akari.Display.Composition = function( params )
         return this.update( startTime );
       if ( time >= startTime + duration )
         return this.update( startTime + duration - 1 );
-      
+
       for ( var i = layers.length; i --; )
       {
+
         layers[ 0 + i ].update( time );
+
       }
+
     },
     
     /* Function: clone
@@ -839,10 +846,11 @@ Akari.Display.MainComposition = function( params )
   
   // Remember the player size to maintain scalability
   var lastWidth, lastHeight;
-  
+
   // Prepare the frame function, need a private handle for removing.
   var frameFunction = function()
   {
+
     // Check if player is running
     if ( Player.state === "playing" )
     {        
@@ -866,6 +874,7 @@ Akari.Display.MainComposition = function( params )
       lastWidth = $.width;
       lastHeight = $.height;
     }
+
   };
   
   var maximizeInContainer = function()
