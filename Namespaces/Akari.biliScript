@@ -70,8 +70,6 @@ Akari.root = function()
 
 ////#IF (IST DEBUG)
 
-// Performance analysis code
-
 Akari.performanceDisplay = function()
 {
   var perfMon = $.createComment( "", { lifeTime : 1, fontsize : 12, color : 0xFFFFFF } );

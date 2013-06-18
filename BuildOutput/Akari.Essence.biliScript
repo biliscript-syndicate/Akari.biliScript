@@ -1,4 +1,4 @@
-﻿/* Akari.biliScript - v20130618
+/* Akari.biliScript - v20130618 essence
  * Copyright (C) 2013 
  * <https://github.com/akaza-akari/Akari.biliScript>
  *
@@ -12,8 +12,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  * 
- * For a copy of the GNU General Public License,
- * see <http://www.gnu.org/licenses/>.
+ * As additional permission under GNU GPL version 3 section 7, you
+ * may distribute non-source (e.g., minimized or compacted) forms of
+ * that code without the copy of the GNU GPL normally required by
+ * section 4, provided you include this license notice and a URL
+ * through which recipients can access the Corresponding Source.
  */
 if ( Global._get( "__isExecuted_akari" ) )
 {

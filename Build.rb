@@ -7,9 +7,11 @@ while ARGV.size > 0
   arguments[ arg_name ] = arg_value;
 end
 
-template_file = arguments[ "-t" ] || "Akari.Template.biliScript"
-namespace_dir = arguments[ "-n" ] || "Namespaces"
-output_file = arguments[ "-o" ] || template_file.sub( ".Template", "" )
+template_file = arguments[ "-t" ] || arguments[ "-template" ] || "Akari.Template.biliScript"
+namespace_dir = arguments[ "-n" ] || arguments[ "-namespaces" ] || "Namespaces"
+output_file = arguments[ "-o" ] || arguments[ "-output" ] || template_file.sub( ".Template", "" )
+strip_comments = arguments[ "-s" ] || arguments[ "-strip" ]
+version_postfix = arguments[ "-v" ] || arguments[ "-version" ] || ""
 
 defines = {}
 if arguments[ "-def" ]
@@ -63,7 +65,7 @@ if FileTest.exists?( template_file )
     end
 
     replace_hash = {
-      "Version" => "v" + Time.now.strftime( "%Y%m%d" ),
+      "Version" => "v" + Time.now.strftime( "%Y%m%d" ) + " " + version_postfix,
       "Year" => Time.new.strftime( "%Y" ),
       "Rightholder" => "",
       "Namespaces" => ""
@@ -152,6 +154,39 @@ if FileTest.exists?( template_file )
         end
 
       end
+    end
+
+    if strip_comments
+      # exempt first block comment (license)
+      first_block = nil
+      template_string.gsub!( /\/\*.*?\*\//m ) do |s|
+        if !first_block
+          first_block = s
+        end
+        next ""
+      end
+
+      template_string.gsub!( /\/\/.*?$/m, "" )
+      template_string.gsub!( /\s*([;:,={}()\[\]])\s*/ ) do |s|
+          next $1
+      end
+      template_string.gsub!( /\s{2,}/, " " );
+
+      # prevent lines from goint too long
+      splitted = template_string.split( ";" )
+      template_string = ""
+      current_length = 0
+      splitted.each do |seg|
+        current_length += seg.length
+        if current_length > 1000
+          current_length = 0
+          template_string << ( seg + ";\n" )
+        else
+          template_string << ( seg + ";" )
+        end
+      end
+
+      template_string = first_block.to_s + template_string
     end
 
     File.open( output_file, "wb:utf-8" ) do |f|
