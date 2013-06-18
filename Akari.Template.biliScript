@@ -16,10 +16,14 @@
  * see <http://www.gnu.org/licenses/>.
  */
 
+////#IF (NT DEBUG)
+
 if ( Global._get( "__isExecuted_akari" ) )
 {
   stopExecution();
 }
+
+////#ENDIF
 
 {{AkariTemplate : Namespaces}}
 

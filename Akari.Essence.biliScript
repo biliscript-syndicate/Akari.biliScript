@@ -1,0 +1,1045 @@
+﻿/* Akari.biliScript - v20130618
+ * Copyright (C) 2013 
+ * <https://github.com/akaza-akari/Akari.biliScript>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * For a copy of the GNU General Public License,
+ * see <http://www.gnu.org/licenses/>.
+ */
+if ( Global._get( "__isExecuted_akari" ) )
+{
+  stopExecution();
+}
+
+/* Namespace: Akari
+ * Contains several namespace level functions.
+ */
+Akari = {};
+
+/* Function: execute
+ * Sets off the helper script running.
+ *
+ * mainComp
+ *   The MainComposition of the Comment Art to present.
+ */
+Akari.execute = function( mainComp )
+{
+  // Create a global reference so that the main composition could be accessed in Expressions
+  Global._set( "__mainComp_akari", mainComp );
+  
+  // Present the main composition
+  mainComp.present();
+  
+  // Set global value to indicate usage
+  Global._set( "__isExecuted_akari", true );
+};
+
+/* Function: stop
+ * Stops the helper for debug use
+ */
+Akari.stop = function()
+{
+  if ( Akari.isExecuted() )
+  {
+    ( Global._get("__mainComp_akari") ).detach();
+    Global._set( "__mainComp_akari", null );
+    Global._set( "__isExecuted_akari", null );
+  }
+};
+
+/* Function: isExecuted
+ * See if the helper is already running
+ */
+Akari.isExecuted = function()
+{
+  return ( Global._get("__isExecuted_akari") === true );
+};
+
+/* Property: root
+ * A safe replacement for $.root in case it get banned
+ */
+Akari.root = function()
+{
+  if( $.hasOwnProperty("root") && $.root )
+  {
+    return $.root;
+  }
+  else
+  {
+    var sprite = $.createCanvas(
+    {
+      lifeTime : 810114514
+    });
+
+    ScriptManager.popEl( sprite );
+    
+    // remove 3D to make it clear by default
+    sprite.transform.matrix3D = null;
+    
+    return sprite;
+  }
+}();
+
+/* Namespace: Akari.Utilities
+ * Provide utilities not directly related to presenting content.
+ */
+Akari.Utilities = {};
+
+/* Static Class: Factory
+ * Provides functions for creating and manipulating objects.
+ * Legacy name used because this was once an actual factory. (See: 2012/11/21 Update)
+ */
+Akari.Utilities.Factory =
+{
+  /* Function: collapse
+   * Concats all arrays given into one.
+   *
+   * arrays
+   *   An Array of Arrays.
+   */
+  collapse : function( arrays )
+  {
+    var result = [];
+    
+    for ( var i = 0; i < arrays.length; i ++ )
+    {
+      result = result.concat( arrays[ i ] );
+    }
+    
+    return result;
+  },
+  
+  /* Function: extend
+   * Copies all properties from the source to the destination object.
+   *
+   * destination
+   *   Destination object.
+   * source
+   *   Source object.
+   */
+  extend : function( destination, source )
+  {
+    // Iterate through the source
+    foreach ( source, function( key, object )
+    {
+      destination[ key.toString() ] = object;
+    });
+    
+    return destination;
+  },
+  
+  /* Function: clone
+   * Clones an Object.
+   *
+   * object
+   *   The Object to clone.
+   */
+  clone : function( object, scope )
+  {
+    // It just might happen to be nothing.
+    if ( ! object )
+    {
+      return object;
+    }
+
+    // Check if the object contains a custom clone function for cloning private variables.
+    if ( object.hasOwnProperty( "clone" ) )
+    {
+      return object.clone();
+    }
+    else if ( typeof object === "function" )
+    {
+      return function() { return object.apply( scope, arguments ); };
+    }
+    else
+    {
+      // Iterate through the Object running this clone function
+      var newObject = {};
+      var countProperties = 0;
+
+      foreach ( object, function( key, object )
+      {
+        countProperties ++;
+        
+        if ( typeof object === "function" )
+        {
+          newObject[ key ] = function() { return object.apply( newObject, arguments ); };
+        }
+        else
+        {
+          var adg = Akari.Utilities.Factory.clone( object );
+          newObject[ key ] = adg;
+        }
+      });
+      
+      // Check if newObject is empty
+      if ( countProperties === 0 )
+      {
+        // Probably AS3 or an empty shit, make a clone first
+        newObject = clone( object );
+
+        if ( object.hasOwnProperty( "numChildren" ) || object.hasOwnProperty( "graphics" ) )
+        {
+          newObject = $.createCanvas(
+          {
+            lifeTime : 810114514
+          });
+
+          ScriptManager.popEl( newObject );
+
+          // copy some displayObject parameters
+          newObject.alpha = object.alpha;
+          newObject.blendMode = object.blendMode;
+          newObject.filters = object.filters;
+          newObject.rotationX = object.rotationX;
+          newObject.rotationY = object.rotationY;
+          newObject.rotationZ = object.rotationZ;
+          newObject.scaleX = object.scaleX;
+          newObject.scaleY = object.scaleY;
+          newObject.scaleZ = object.scaleZ;
+          newObject.scrollRect = object.scrollRect;
+          newObject.transform.colorTransform = object.transform.colorTransform;
+          newObject.transform.matrix = object.transform.matrix;
+          newObject.transform.matrix3D = object.transform.matrix3D;
+        }
+        
+        // Check if it's a DOC
+        if ( object.hasOwnProperty( "numChildren" ) )
+        {
+          for ( var i = 0; i < object.numChildren; i ++ )
+          {
+            newObject.addChild( Akari.Utilities.Factory.clone( object.getChildAt( i ) ) );
+          }
+        }
+        
+        // Check if it's a Shape
+        if ( object.hasOwnProperty( "graphics" ) )
+        {
+          // Clone the Graphic's content
+          newObject.graphics.copyFrom( object.graphics );
+        }
+      }
+      
+      return newObject;
+    }
+  },
+  
+  /* Function: replicate
+   * Returns an Array of Objects created according to given params. 
+   *
+   * constructor
+   *   Constructor of the Class to replicate.
+   * count
+   *   Count of result Objects.
+   * paramsFunction
+   *   A Function accepting index as parameter, returning an Array of parameters.
+   */
+  replicate : function( constructor, count, paramsFunction )
+  {
+    var objects = [];
+    
+    var i = 0;
+    for ( i = 0; i < count; i ++ )
+    {
+      var newParams;
+      
+      newParams = paramsFunction ? paramsFunction( i ) : [];
+      
+      objects.push( constructor.apply( this, newParams ) );
+    }
+    
+    return objects;
+  }
+};
+
+/* Static Class: Timer
+ * Improves timing precision over Player.time by sampling time usage for each frame. For retaining both smoothness and seekability.
+ */
+Akari.Utilities.Timer = function()
+{
+  var lastTime = 0;
+  var deltaTime = 0;
+  var sampleCount = 1;
+  
+  return
+  {
+    time : 0,
+    
+    /* Function: update
+     * Counts a frame and updates time.
+     */
+    update : function()
+    {
+      if ( Player.time != lastTime )
+      {
+        // Make drastic change proof
+        if ( Math.abs( Player.time - lastTime ) < 1000 )
+        {
+          deltaTime = ( Player.time - lastTime ) / sampleCount;
+          lastTime = Player.time;
+          sampleCount = 1;
+          
+          this.time = Player.time;
+        }
+        else
+        {
+          // Reset Timer because of a possible seek (or just so laggy that Timer is not effective)
+          deltaTime = 0;
+          lastTime = Player.time;
+          sampleCount = 1;
+          
+          this.time = Player.time;
+        }
+      }
+      else
+      {
+        this.time = lastTime + deltaTime * sampleCount;
+        sampleCount ++;
+      }
+    }
+  };
+}();
+
+/* Class: Binder
+ * Provides functions for binding properties. Mainly used in layers.
+ *
+ * object
+ *   An Object to bind.
+ * properties
+ *   An Object, containing values or Bindings for each property.
+ * overridePathCheck
+ *   [default] false
+ *   Specifying this will override path checking, so that new properties can be added to the object.
+ *   It is impossible to add new properties on AS3 objects (Error #1056), hence the protective mechanism. Override only if the feature is needed.
+ */
+Akari.Utilities.Binder = function()
+{
+  var binderClass = function( params )
+  {
+    var registry = [];
+    var lookup = {};
+    var needRefresh = true;
+
+    var setParam = function( object, name, value )
+    {
+      var dotIndex = name.indexOf(".");
+      if ( dotIndex < 0 )
+      {
+        if ( params.overridePathCheck || object.hasOwnProperty( name ) )
+        {
+          object[ name ] = value;
+        }
+      }
+      else
+      {
+        var midName = name.substring( 0, dotIndex );
+        if ( params.overridePathCheck )
+        {
+          if ( !object.hasOwnProperty( midName ) )
+          {
+            object[ midName ] = {};
+          }
+          setParam( object[ midName ], name.substring( dotIndex + 1 ), value );
+        }
+        else
+        {
+          if ( object.hasOwnProperty( midName ) )
+          {
+            setParam( object[ midName ], name.substring( dotIndex + 1 ), value );
+          }
+        }
+      }
+    };
+    
+    foreach( params.properties, function( key, obj )
+    {
+      var changeType = null;
+      var value = null;
+
+      if ( typeof( obj ) === "function" )
+      {
+        changeType = "func";
+      }
+      else if ( obj.hasOwnProperty( "linkFunc" ) )
+      {
+        changeType = obj.linkFunc ? "linkFunc" : "link";
+      }
+      else if ( obj.hasOwnProperty( "multiFunc" ) )
+      {
+        changeType = "multi";
+      }
+      else
+      {
+        value = obj;
+      }
+
+      registry.push( [ key, obj, changeType, [], value ] );
+    });
+
+    // second pass generates dependency
+    for ( var k = registry.length; k --; )
+    {
+      lookup[ registry[ k ][ 0 ] ] = k;
+    }
+
+    for ( var k = registry.length; k --; )
+    {
+      if ( registry[ k ][ 2 ] === "linkFunc" || registry[ k ][ 2 ] === "link" )
+      {
+        var dependency = [];
+        var names = [ registry[ k ][ 1 ].names ];
+
+        while ( names.length > 0 )
+        {
+          var currentNames = names.pop();
+          dependency = dependency.concat( currentNames );
+          for ( var n = currentNames.length; n --; )
+          {
+            if ( registry[ 0 + lookup[ "" + currentNames[ n ] ] ][ 2 ] === "linkFunc" || registry[ 0 + lookup[ "" + currentNames[ n ] ] ][ 2 ] === "link" )
+            {
+              names.push( registry[ 0 + lookup[ "" + currentNames[ n ] ] ][ 1 ].names );
+            }
+          }
+        }
+
+        registry[ k ][ 3 ] = dependency;
+      }
+    }
+
+    // sort by dependency
+    registry.sort( function( a, b )
+    {
+      if ( a[ 3 ].length !== 0 && b[ 3 ].length === 0 )
+      {
+        return 1;
+      }
+      if ( a[ 3 ].length === 0 && b[ 3 ].length !== 0 )
+      {
+        return -1;
+      }
+      if ( a[ 3 ].indexOf( b[ 0 ] ) >= 0 )
+      {
+        return 1;
+      }
+      if ( b[ 3 ].indexOf( a[ 0 ] ) >= 0 )
+      {
+        return -1;
+      }
+      if ( a[ 2 ] && !b[ 2 ] )
+      {
+        return 1;
+      }
+      else if ( b[ 2 ] && !a[ 2 ] )
+      {
+        return -1;
+      }
+      return 0;
+    });
+
+    for ( var k = registry.length; k --; )
+    {
+      lookup[ registry[ k ][ 0 ] ] = k;
+    }
+    
+    return
+    {
+      
+      /* Function: update
+       * Updates the object to fit the timeline.
+       *
+       * time
+       *   A Number, the current time (in milliseconds) on the Composition's timeline.
+       * scope
+       *   [default] object
+       *   An Object, scope under which the binded functions are called.
+       */
+      update : function( time, scope )
+      {
+        for ( var i = 0; i < registry.length; i ++ )
+        {
+          switch ( registry[ i ][ 2 ] )
+          {
+            case "func" :
+              registry[ i ][ 4 ] = registry[ i ][ 1 ].apply( scope || params.object, [ time ] );
+              break;
+            case "link" :
+              // should be computed already
+              registry[ i ][ 4 ] = registry[ 0 + lookup[ "" + registry[ i ][ 3 ][ 0 ] ] ][ 4 ];
+              break;
+            case "linkFunc" :
+              var funcArgs = [];
+              var names = registry[ i ][ 3 ];
+
+              for ( var a = 0; a < names.length; a ++ )
+              {
+                funcArgs.push( registry[ 0 + lookup[ "" + names[ a ] ] ][ 4 ] );
+              }
+
+              funcArgs.push( time );
+
+              registry[ i ][ 4 ] = registry[ i ][ 1 ].linkFunc.apply( scope || params.object, funcArgs );
+              break;
+            case "multi" :
+              registry[ i ][ 4 ] = registry[ i ][ 1 ].multiFunc.apply( scope || params.object, [ time ] );
+              var names = registry[ i ][ 1 ].names;
+
+              for ( var a = 0; a < names.length; a ++ )
+              {
+                setParam( params.object, names[ a ], registry[ i ][ 4 ][ a ] );
+              }
+              break;
+          }
+          setParam( params.object, registry[ i ][ 0 ], registry[ i ][ 4 ] );
+        }
+      }
+    };
+  };
+
+  /* Class: Binder.Link
+   * Represents a link between different properties.
+   *
+   * name
+   *   The name of the property to link.
+   * names
+   *   [default] [ name ]
+   *   Array of strings. Overrides name if specified.
+   * linkFunc
+   *   [default] null
+   *   A Function accepting input & time from binder or null indicating copy.
+   */
+  binderClass.Link = function( params )
+  {
+    return
+    {
+      names : params.names || [ params.name ],
+      linkFunc : params.linkFunc || null
+    };
+  };
+
+  /* Class: Binder.Multi
+   *
+   * names
+   *   Array of strings.
+   * func
+   *   A Function returning an array of values corresponding to names.
+   */
+  binderClass.Multi = function( params )
+  {
+    return
+    {
+      names : params.names,
+      multiFunc : params.func
+    };
+  };
+  
+  return binderClass;
+}();
+
+/* Namespace: Akari.Display
+ * This sort of classes are abstractions of display objects for use in production.
+ */
+
+Akari.Display = {};
+ 
+/* Class: Layer
+ * Provides functions for animating contents.
+ *
+ * source
+ *   A DisplayObject serving as the layer source.
+ * inPoint
+ *   A Number, the time (in milliseconds) at which the layers enters.
+ * outPoint
+ *   A Number, the time (in milliseconds) at which the layers exits.
+ * properties
+ *   [default] {}
+ *   An Object, containing values or Bindings for each AS3 property.
+ * effects
+ *   Array( [ Constructor effect, PlainObject params ] ). Effects should have an stackInterface that handles pipelining.
+ *   stackInterface should be a Function( Layer, PlainObject params ) that incorporates the missing Layer parameter into params and calls effect Constructor.
+ */
+Akari.Display.Layer = function( params )
+{
+  // Create a private binder for properties
+  var binder = Akari.Utilities.Binder({ object : params.source, properties : params.properties || {} });
+  
+  var layer =
+  {
+    source : params.source,
+    inPoint : params.inPoint,
+    outPoint : params.outPoint,
+    
+    /* Function: update
+     * Updates the layer to fit the timeline.
+     *
+     * time
+     *   A Number, the current time (in milliseconds) on the Composition's timeline.
+     */
+    update : function( time )
+    {
+      if ( time < params.inPoint || time >= params.outPoint )
+      {
+        this.source.visible = false;
+      }
+      else
+      {
+        // Set source visible first, so that it can be overridden by binder.
+        this.source.visible = true;
+        
+        binder.update( time, this.getBinderScope() );
+      }
+    },
+    
+    /* Function: getBinderScope
+     * Dynamically return self for use as scope in Binders.
+     */
+    getBinderScope : function()
+    {
+      return this;
+    },
+    
+    /* Function: clone
+     * Custom clone function for binder to work.
+     */
+    clone : function()
+    {
+      return Akari.Display.Layer( Akari.Utilities.Factory.clone( params ) );
+    }
+  };
+
+  // effect stack support
+  if ( params.effects )
+  {
+    for ( var i = 0; i < params.effects.length; i ++ )
+    {
+      layer = params.effects[ i ][ 0 ].stackInterface( layer, params.effects[ i ][ 1 ] );
+    }
+  }
+  
+  // Update Layer for a first time to prevent flashing
+  layer.update( params.inPoint );
+  
+  return layer;
+};
+
+/* Class: DynamicSourceLayer
+ * A type of layer specialized to handle dynamic layer sources.
+ *
+ * provider
+ *   A DynamicLayerSourceProvider.
+ * inPoint
+ *   A Number, the time (in milliseconds) at which the layers enters.
+ * outPoint
+ *   A Number, the time (in milliseconds) at which the layers exits.
+ * inPointTime
+ *   [default] provider.startTime
+ *   A Number, the time (in milliseconds) the DynamicLayerSourceProvider is at when the layers enters.
+ * outPointTime
+ *   [default] provider.startTime + provider.duration
+ *   A Number, the time (in milliseconds) the DynamicLayerSourceProvider is at when the layers exits.
+ * timeRemap
+ *   [default] null
+ *   A Function or null, depending on whether you need time remapping. Setting this function overrides inPointTime and outPointTime settings.
+ *   The function should accept a parameter time (in milliseconds) the current time.
+ * properties
+ *   [default] {}
+ *   An Object, containing values or Bindings for each AS3 property.
+ * effects
+ *   Array( [ Constructor effect, PlainObject params ] ). Effects should have an stackInterface that handles pipelining.
+ *   stackInterface should be a Function( Layer, PlainObject params ) that incorporates the missing Layer parameter into params and calls effect Constructor.
+ */
+Akari.Display.DynamicSourceLayer = function( params )
+{
+  var nestedProvider = params.provider;
+  var inPointTime = params.inPointTime || nestedProvider.startTime;
+  var outPointTime = params.outPointTime || nestedProvider.startTime + nestedProvider.duration;
+  
+  // Create a Layer.
+  var layer = Akari.Display.Layer(
+  {
+    source : nestedProvider.canvas,
+    inPoint : params.inPoint,
+    outPoint : params.outPoint,
+    properties : params.properties
+  });
+  
+  // Simulate inheritance by making a backup of update function.
+  var baseUpdate = Akari.Utilities.Factory.clone( layer.update, layer );
+  
+  // Declare new update regarding nested DynamicLayerSourceProvider timeline.
+  // Declare different functions according to having timeRemap or not to improve performance.
+  if ( params.timeRemap )
+  {
+    layer.update = function( time )
+    {
+      baseUpdate( time );
+      
+      if ( this.source.visible )
+        nestedProvider.update( params.timeRemap( time ) );
+    };
+  }
+  else
+  {
+    layer.update = function( time )
+    {
+      baseUpdate( time );
+      
+      if ( this.source.visible )
+        nestedProvider.update( inPointTime + ( time - params.inPoint ) * (outPointTime - inPointTime) / ( params.outPoint - params.inPoint) );
+    };
+  }
+    
+  /* Function: clone
+   * Custom clone function for binder to work.
+   */
+  layer.clone = function()
+  {
+    return Akari.Display.DynamicSourceLayer( Akari.Utilities.Factory.clone( params ) );
+  };
+
+  // effect stack support
+  if ( params.effects )
+  {
+    for ( var i = 0; i < params.effects.length; i ++ )
+    {
+      layer = params.effects[ i ][ 0 ].stackInterface( layer, params.effects[ i ][ 1 ] );
+    }
+  }
+  
+  // Update Layer for a first time to prevent flashing
+  layer.update( params.inPoint );
+  
+  return layer;
+};
+
+/* Class: Composition
+ * A DynamicLayerSourceProvider that provides functions as the framework of a scene.
+ *
+ * width
+ *   [default] $.width
+ *   A Number specifying stage width.
+ * height
+ *   [default] $.height
+ *   A Number specifying stage height.
+ * startTime
+ *   [default] 0
+ *   A Number, the time (in milliseconds) when the timeline starts.
+ * duration
+ *   [default] 60000
+ *   A Number, the length (in milliseconds) of the timeline.
+ * layers
+ *   [default] []
+ *   An Array of Layers, from top to bottom.
+ * hasBoundaries
+ *   [default] false
+ *   Whether a mask will be put on the canvas so that elements outside become invisible.
+ */
+Akari.Display.Composition = function( params )
+{
+  var canvas = Akari.Display.Sprite();
+  if ( params.hasBoundaries )
+  {
+    var solidMask = Akari.Display.Solid({ width : params.width || $.width, height : params.height || $.height, color : 0x0 });
+    canvas.addChild( solidMask );
+    canvas.mask = solidMask;
+  }
+  
+  var layers = Akari.Utilities.Factory.collapse( params.layers || [] );
+  var i = 0;
+  
+  for ( i = 0; i < layers.length; i ++ )
+  {
+    canvas.addChild( layers[ i ].source );
+    layers[ i ].parent = this;
+  }
+  
+  return
+  {
+    width : params.width || $.width,
+    height : params.height || $.height,
+    startTime : params.startTime || 0,
+    duration : params.duration || 60000,
+    layers : layers,
+    canvas : canvas,
+    
+    /* Function: update
+     * Updates the canvas to fit the timeline.
+     *
+     * time
+     *   A Number, the current time (in milliseconds) on the Composition's own timeline.
+     */
+    update : function( time )
+    {
+      // Check if Composition is active, otherwise update for borderline situations.
+      if ( time < startTime )
+        return this.update( startTime );
+      if ( time >= startTime + duration )
+        return this.update( startTime + duration - 1 );
+      
+      for ( var i = layers.length; i --; )
+      {
+        layers[ 0 + i ].update( time );
+      }
+    },
+    
+    /* Function: clone
+     * Custom clone function to ensure masking work.
+     */
+    clone : function()
+    {
+      return Akari.Display.Composition( Akari.Utilities.Factory.clone( params ) );
+    }
+  };
+};
+
+/* Class: MainComposition
+ * Provides functions as the framework of the comment art. Only MainCompositions have ability to be presented.
+ *
+ * width
+ *   [default] $.width
+ *   A Number specifying stage width.
+ * height
+ *   [default] $.height
+ *   A Number specifying stage height.
+ * startTime
+ *   [default] 0
+ *   A Number, the time (in milliseconds) when the timeline starts.
+ * duration
+ *   [default] 60000
+ *   A Number, the length (in milliseconds) of the timeline.
+ * layers
+ *   [default] []
+ *   An Array of Layers, from top to bottom.
+ * hasBoundaries
+ *   [default] true
+ *   Whether a mask will be put on the canvas so that elements outside become invisible.
+ */
+Akari.Display.MainComposition = function( params )
+{
+  if (!( params.hasBoundaries === false ))
+  {
+    params.hasBoundaries = true;
+  }
+  
+  var composition = Akari.Display.Composition( params );
+  
+  // Remember when did the comp last update to maintain seekability.
+  var lastUpdate = -1;
+  
+  // Remember the player size to maintain scalability
+  var lastWidth, lastHeight;
+  
+  // Prepare the frame function, need a private handle for removing.
+  var frameFunction = function()
+  {
+    // Check if player is running
+    if ( Player.state === "playing" )
+    {        
+      Akari.Utilities.Timer.update();
+      
+      composition.update( Akari.Utilities.Timer.time );
+    }
+    else
+    {
+      // When player is not running, check last update time to ensure seekability.
+      if ( lastUpdate != Player.time )
+        composition.update( Player.time );
+    }
+    
+    // Check if player size changed
+    // I dislike polling but can't find a event to listen for this. Need suggestion
+    if ( $.width != lastWidth || $.height != lastHeight )
+    {
+      maximizeInContainer();
+      
+      lastWidth = $.width;
+      lastHeight = $.height;
+    }
+  };
+  
+  var maximizeInContainer = function()
+  {
+    ratio = Math.min( $.width / Akari.root.scaleX / composition.width, $.height / Akari.root.scaleY / composition.height );
+    composition.canvas.scaleX = ratio;
+    composition.canvas.scaleY = ratio;
+    
+    composition.canvas.x = ( $.width / Akari.root.scaleX - composition.width * ratio ) / 2;
+    composition.canvas.y = ( $.height / Akari.root.scaleY - composition.height * ratio ) / 2;
+  };
+  
+  // Declare new update for update time stuff
+  var baseUpdate = Akari.Utilities.Factory.clone( composition.update, composition );
+  
+  composition.update = function( time )
+  {
+    lastUpdate = time;
+    baseUpdate( time );
+  };
+
+  /* Function: present
+   * Presents the composition immediately. Only one Composition can be presented at a time.
+   */
+  composition.present = function()
+  {
+    this.canvas.addEventListener( "enterFrame", frameFunction );
+    
+    Akari.root.addChild( this.canvas );
+    
+    frameFunction();
+  };
+    
+  /* Function: detach
+   * Detaches the composition from player.
+   */
+  composition.detach = function()
+  {
+    this.canvas.removeEventListener( "enterFrame", frameFunction );
+    
+    Akari.root.removeChild( this.canvas );
+  };
+    
+  /* Function: clone
+   * Custom clone function for binder to work.
+   */
+  composition.clone = function()
+  {
+    return Akari.Display.MainComposition( Akari.Utilities.Factory.clone( params ) );
+  };
+  
+  // Return Composition
+  return composition;
+};
+
+/* Static Function: getInstance
+ * Read the global variable. Only avaiable after one has been presented.
+ */
+Akari.Display.MainComposition.getInstance = function()
+{
+  return Global._get("__mainComp_akari");
+};
+
+/* Class: Animation
+ * A DynamicLayerSourceProvider with primitive stop motion animation support.
+ *
+ * frames
+ *   An Array of functions with signature function( graphics ){ }.
+ * frameRate
+ *   [default] 12
+ *   The rate at which the animation is played.
+ *   Setting a rate much too high while having a complex scene can probably cause performance problems.
+ */
+Akari.Display.Animation = function( params )
+{
+  var lastFrame = 0;
+  var frameRate = params.frameRate || 12;
+  
+  // Function for getting the current frame
+  var findCurrentIndex = function( time )
+  {
+    return Math.floor( time * frameRate / 1000 );
+  };
+  
+  var canvas = Akari.Display.Shape();
+  
+  return
+  {
+    startTime : 0,
+    duration : params.frames.length * 1000 / frameRate,
+    canvas : canvas,
+    
+    /* Function: update
+     * Updates the canvas to fit the timeline.
+     *
+     * time
+     *   A Number, the current time (in milliseconds) on the Animation's own timeline.
+     */
+    update : function( time )
+    {
+      // Check if an update is needed
+      var currentFrame = findCurrentIndex( time );
+      if ( currentFrame === lastFrame ) return;
+      
+      canvas.graphics.clear();
+      params.frames[ currentFrame ]( canvas.graphics );
+      
+      lastFrame = currentFrame;
+    },
+    
+    /* Function: clone
+     * Custom clone function for canvas and such.
+     */
+    clone : function()
+    {
+      return Akari.Display.Animation( Akari.Utilities.Factory.clone( params ) );
+    }
+  };
+};
+
+/* Class: Sprite
+ * Shortcut for AS3 Sprite.
+ */
+Akari.Display.Sprite = function()
+{
+  var sprite = $.createCanvas(
+  {
+    lifeTime : 810114514
+  });
+  
+  ScriptManager.popEl( sprite );
+  
+  // remove 3D to make it clear by default
+  sprite.transform.matrix3D = null;
+  
+  return sprite;
+};
+
+/* Class: Shape
+ * Shortcut for AS3 Shape.
+ */
+Akari.Display.Shape = function()
+{
+  var shape = $.createShape(
+  {
+    lifeTime : 810114514
+  });
+  
+  ScriptManager.popEl( shape );
+  
+  // remove 3D to make it clear by default
+  shape.transform.matrix3D = null;
+  
+  return shape;
+};
+/* Class: Text
+ * Shortcut for AS3 TextField.
+ *
+ * preserveGlow
+ *   [default] false
+ *   Whether to preserve the original glow filter
+ */
+Akari.Display.Text = function( preserveGlow )
+{
+  var text = $.createComment( "",
+  {
+    lifeTime : 810114514
+  });
+  
+  ScriptManager.popEl( text );
+  
+  if ( !preserveGlow ) text.filters = null;
+  
+  // remove 3D to make it clear by default
+  text.transform.matrix3D = null;
+  
+  return text;
+};
+
+Global._set( "__akari", Akari );

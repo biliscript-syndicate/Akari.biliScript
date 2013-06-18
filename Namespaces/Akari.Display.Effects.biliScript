@@ -2,6 +2,8 @@
 // {{Depend : Akari.Utilities}} //
 // {{Depend : Akari.Display}} //
 
+////#IF (NF INCL_FX)
+
 /* Namespace: Akari.Display.Effects
  * This sort of classes are effects that wrap around layers. Not to be confused with filters which should be set with Binders.
  */
@@ -146,3 +148,5 @@ Akari.Display.Effects.ForceMotionBlur.stackInterface = function( layer, params )
 
   return Akari.Display.Effects.ForceMotionBlur( Akari.Utilities.Factory.extend( params, { layers : layers } ) );
 };
+
+////#ENDIF

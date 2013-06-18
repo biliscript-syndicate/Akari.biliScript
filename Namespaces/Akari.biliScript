@@ -67,3 +67,17 @@ Akari.root = function()
     return sprite;
   }
 }();
+
+////#IF (IST DEBUG)
+
+// Performance analysis code
+
+Akari.performanceDisplay = function()
+{
+  var perfMon = $.createComment( "", { lifeTime : 1, fontsize : 12, color : 0xFFFFFF } );
+  ScriptManager.popEl( perfMon );
+  perfMon.transform.matrix3D = null;
+  return perfMon;
+}();
+
+////#ENDIF

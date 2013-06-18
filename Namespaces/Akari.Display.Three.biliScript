@@ -2,6 +2,8 @@
 // {{Depend : Akari.Utilities}} //
 // {{Depend : Akari.Display}} //
 
+////#IF (NF INCL_THREE)
+
 Akari.Display.Three = {};
 
 /* Static Class: MatrixUtil
@@ -233,6 +235,7 @@ Akari.Display.Three.ThreeComposition = function( params )
   for ( i = 0; i < layers.length; i ++ )
   {
     container.register( layers[ i ].source, layers[ i ].relatedData );
+    layers[ i ].parent = this;
   }
 
   var cameras = params.cameras || [];
@@ -271,11 +274,10 @@ Akari.Display.Three.ThreeComposition = function( params )
       if ( time >= startTime + duration )
         return this.update( startTime + duration - 1 );
       
-      foreach( this.layers, function( key, object )
+      for ( var i = layers.length; i --; )
       {
-        if ( !object.parent ) object.parent = this;
-        object.update( time );
-      });
+        layers[ 0 + i ].update( time );
+      }
 
       // Using linear search to assure overlapping rules work for cameras just as with layers
       var camera = defaultCamera;
@@ -315,3 +317,5 @@ Akari.Display.Three.ThreeComposition = function( params )
     }
   };
 };
+
+////#ENDIF

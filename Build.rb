@@ -1,8 +1,24 @@
 require "io/console"
 
-template_file = ARGV.shift || "Akari.Template.biliScript"
-namespace_dir = ARGV.shift || "Namespaces"
-output_file = ARGV.shift || template_file.sub( ".Template", "" )
+arguments = {}
+while ARGV.size > 0
+  arg_name = ARGV.shift.to_s.downcase;
+  arg_value = ARGV.shift;
+  arguments[ arg_name ] = arg_value;
+end
+
+template_file = arguments[ "-t" ] || "Akari.Template.biliScript"
+namespace_dir = arguments[ "-n" ] || "Namespaces"
+output_file = arguments[ "-o" ] || template_file.sub( ".Template", "" )
+
+defines = {}
+if arguments[ "-def" ]
+  defs = arguments[ "-def" ].split( ";" )
+  defs.each do |s|
+    kvp = s.split( "=" )
+    defines[ kvp[ 0 ] ] = kvp[ 1 ]
+  end
+end
 
 if FileTest.exists?( template_file )
 
@@ -78,6 +94,63 @@ if FileTest.exists?( template_file )
         next replace_hash[ $1 ]
       else
         next ""
+      end
+    end
+
+    # handle conditional directives
+    conditional_regex = %r{
+      (?<condition_type>
+        DEF|NDEF|IST|ISF|NT|NF|EVAL
+      ){0}
+
+      (?<ifblock>
+        ^\s* ////\#IF \s+ \(\s* \g<condition_type> \s+ (?<condition>[^\n]*?) \) \s* $\n
+
+        (?<codeblock>
+          ((?! \g<ifblock> ) .)*?
+        )
+
+        (
+          ^\s* ////\#ELSE \s* $\n
+
+          (?<elsecodeblock>
+            ((?! \g<ifblock> ) .)*?
+          )
+        )?
+
+        ^\s* ////\#ENDIF \s* $
+      )
+    }mx
+
+    s = true
+    while s
+      s = template_string.sub!( conditional_regex ) do |m|
+
+        match = $~
+
+        case match[ "condition_type" ]
+        when "DEF"
+          statement_true = defines.has_key?( match[ "condition" ] )
+        when "NDEF"
+          statement_true = !defines.has_key?( match[ "condition" ] )
+        when "IST"
+          statement_true = ( defines[ match[ "condition" ] ].to_s.downcase == "true" )
+        when "ISF"
+          statement_true = ( defines[ match[ "condition" ] ].to_s.downcase == "false" )
+        when "NT"
+          statement_true = ( defines[ match[ "condition" ] ].to_s.downcase != "true" )
+        when "NF"
+          statement_true = ( defines[ match[ "condition" ] ].to_s.downcase != "false" )
+        when "EVAL"
+          statement_true = eval( match[ "condition" ] )
+        end
+
+        if statement_true
+          next match[ "codeblock" ]
+        else
+          next match[ "elsecodeblock" ]
+        end
+
       end
     end
 

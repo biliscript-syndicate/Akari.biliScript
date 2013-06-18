@@ -215,6 +215,7 @@ Akari.Display.Composition = function( params )
   for ( i = 0; i < layers.length; i ++ )
   {
     canvas.addChild( layers[ i ].source );
+    layers[ i ].parent = this;
   }
   
   return
@@ -240,11 +241,10 @@ Akari.Display.Composition = function( params )
       if ( time >= startTime + duration )
         return this.update( startTime + duration - 1 );
       
-      foreach( this.layers, function( key, object )
+      for ( var i = layers.length; i --; )
       {
-        if ( !object.parent ) object.parent = this;
-        object.update( time );
-      });
+        layers[ 0 + i ].update( time );
+      }
     },
     
     /* Function: clone
@@ -476,6 +476,8 @@ Akari.Display.Shape = function()
   return shape;
 };
 
+////#IF (ISF INCL_TEXT)
+
 /* Class: Text
  * Shortcut for AS3 TextField.
  *
@@ -499,6 +501,10 @@ Akari.Display.Text = function( preserveGlow )
   
   return text;
 };
+
+////#ENDIF
+
+////#IF (NF INCL_SHAND)
 
 /* Class: Solid
  * A solid color layer source.
@@ -644,3 +650,5 @@ Akari.Display.Checkerboard = function( params )
   
   return shape;
 };
+
+////#ENDIF

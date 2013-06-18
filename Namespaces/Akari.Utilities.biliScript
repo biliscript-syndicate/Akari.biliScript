@@ -329,6 +329,14 @@ Akari.Utilities.Binder = function()
     // sort by dependency
     registry.sort( function( a, b )
     {
+      if ( a[ 3 ].length !== 0 && b[ 3 ].length === 0 )
+      {
+        return 1;
+      }
+      if ( a[ 3 ].length === 0 && b[ 3 ].length !== 0 )
+      {
+        return -1;
+      }
       if ( a[ 3 ].indexOf( b[ 0 ] ) >= 0 )
       {
         return 1;
@@ -447,6 +455,8 @@ Akari.Utilities.Binder = function()
   return binderClass;
 }();
 
+////#IF (NF INCL_VECTOR)
+
 /* Static Class: Vector
  * Provides functions for vector operations.
  */
@@ -536,6 +546,10 @@ Akari.Utilities.Vector =
     return Math.acos( this.dot( a, b ) / ( this.length( a ) * this.length( b ) ) );
   }
 };
+
+////#ENDIF
+
+////#IF (NF INCL_RAND)
 
 /* Static Class: Randomizer
  * Provides functions creating randomizers by user provided seed.
@@ -672,3 +686,5 @@ Akari.Utilities.Randomizer = function()
 
   return Akari.Utilities.Factory.extend( Akari.Utilities.Factory.extend( defaultRandomizer, randomizerMixin ), randomizerNs );
 }();
+
+////#ENDIF

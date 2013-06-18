@@ -2,6 +2,8 @@
 // {{Depend : Akari.Utilities}} //
 // {{Depend : Akari.Display}} //
 
+////#IF (NF INCL_TEXT)
+
 /* Namespace: Akari.Display.Text
  * Classes for displaying vector text.
  */
@@ -406,3 +408,5 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
   
   return layer;
 };
+
+////#ENDIF

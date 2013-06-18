@@ -1,6 +1,8 @@
 // {{Depend : Akari}} //
 // {{Depend : Akari.Utilities}} //
 
+////#IF (NF INCL_ANIM)
+
 /* Namespace: Akari.Animation
  * This sort of classes are helpers for creating animation.
  */
@@ -1303,3 +1305,5 @@ Akari.Animation.CurveTrace = function( params )
     };
   }
 };
+
+////#ENDIF

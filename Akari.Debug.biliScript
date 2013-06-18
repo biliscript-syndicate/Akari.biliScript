@@ -15,10 +15,6 @@
  * For a copy of the GNU General Public License,
  * see <http://www.gnu.org/licenses/>.
  */
-if ( Global._get( "__isExecuted_akari" ) )
-{
-  stopExecution();
-}
 
 /* Namespace: Akari
  * Contains several namespace level functions.
@@ -87,6 +83,15 @@ Akari.root = function()
     
     return sprite;
   }
+}();
+// Performance analysis code
+
+Akari.performanceDisplay = function()
+{
+  var perfMon = $.createComment( "", { lifeTime : 1, fontsize : 12, color : 0xFFFFFF } );
+  ScriptManager.popEl( perfMon );
+  perfMon.transform.matrix3D = null;
+  return perfMon;
 }();
 
 /* Namespace: Akari.Utilities
