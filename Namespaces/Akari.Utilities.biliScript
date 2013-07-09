@@ -278,15 +278,15 @@ Akari.Utilities.Binder = function()
 
       if ( typeof( obj ) === "function" )
       {
-        changeType = "func";
+        changeType = 100;
       }
       else if ( obj.hasOwnProperty( "linkFunc" ) )
       {
-        changeType = obj.linkFunc ? "linkFunc" : "link";
+        changeType = obj.linkFunc ? 201 : 200;
       }
       else if ( obj.hasOwnProperty( "multiFunc" ) )
       {
-        changeType = "multi";
+        changeType = 300;
       }
       else
       {
@@ -304,7 +304,7 @@ Akari.Utilities.Binder = function()
 
     for ( var k = registry.length; k --; )
     {
-      if ( registry[ k ][ 2 ] === "linkFunc" || registry[ k ][ 2 ] === "link" )
+      if ( registry[ k ][ 2 ] === 201 || registry[ k ][ 2 ] === 200 )
       {
         var dependency = [];
         var names = [ registry[ k ][ 1 ].names ];
@@ -315,7 +315,7 @@ Akari.Utilities.Binder = function()
           dependency = dependency.concat( currentNames );
           for ( var n = currentNames.length; n --; )
           {
-            if ( registry[ 0 + lookup[ "" + currentNames[ n ] ] ][ 2 ] === "linkFunc" || registry[ 0 + lookup[ "" + currentNames[ n ] ] ][ 2 ] === "link" )
+            if ( registry[ 0 + lookup[ "" + currentNames[ n ] ] ][ 2 ] === 201 || registry[ 0 + lookup[ "" + currentNames[ n ] ] ][ 2 ] === 200 )
             {
               names.push( registry[ 0 + lookup[ "" + currentNames[ n ] ] ][ 1 ].names );
             }
@@ -356,9 +356,18 @@ Akari.Utilities.Binder = function()
       return 0;
     });
 
+    var loopStart = registry.length;
     for ( var k = registry.length; k --; )
     {
       lookup[ registry[ k ][ 0 ] ] = k;
+      if ( registry[ k ][ 2 ] )
+      {
+        loopStart = k;
+      }
+      else
+      {
+        setParam( params.object, registry[ k ][ 0 ], registry[ k ][ 4 ] );
+      }
     }
     
     return
@@ -378,18 +387,24 @@ Akari.Utilities.Binder = function()
         ////#IF (IST DEBUG)
         Akari.intoProcess( Akari.processID.BINDER );
         ////#ENDIF
-        for ( var i = 0; i < registry.length; i ++ )
+        for ( var i = loopStart; i < registry.length; i ++ )
         {
           switch ( registry[ i ][ 2 ] )
           {
-            case "func" :
+            case 100 :
+              ////#IF (IST DEBUG)
+              Akari.intoProcess( Akari.processID.USER );
+              ////#ENDIF
               registry[ i ][ 4 ] = registry[ i ][ 1 ].apply( scope || params.object, [ time ] );
+              ////#IF (IST DEBUG)
+              Akari.outOfProcess();
+              ////#ENDIF
               break;
-            case "link" :
+            case 200 :
               // should be computed already
               registry[ i ][ 4 ] = registry[ 0 + lookup[ "" + registry[ i ][ 3 ][ 0 ] ] ][ 4 ];
               break;
-            case "linkFunc" :
+            case 201 :
               var funcArgs = [];
               var names = registry[ i ][ 3 ];
 
@@ -400,10 +415,22 @@ Akari.Utilities.Binder = function()
 
               funcArgs.push( time );
 
+              ////#IF (IST DEBUG)
+              Akari.intoProcess( Akari.processID.USER );
+              ////#ENDIF
               registry[ i ][ 4 ] = registry[ i ][ 1 ].linkFunc.apply( scope || params.object, funcArgs );
+              ////#IF (IST DEBUG)
+              Akari.outOfProcess();
+              ////#ENDIF
               break;
-            case "multi" :
+            case 300 :
+              ////#IF (IST DEBUG)
+              Akari.intoProcess( Akari.processID.USER );
+              ////#ENDIF
               registry[ i ][ 4 ] = registry[ i ][ 1 ].multiFunc.apply( scope || params.object, [ time ] );
+              ////#IF (IST DEBUG)
+              Akari.outOfProcess();
+              ////#ENDIF
               var names = registry[ i ][ 1 ].names;
 
               for ( var a = 0; a < names.length; a ++ )
@@ -460,6 +487,116 @@ Akari.Utilities.Binder = function()
   
   return binderClass;
 }();
+
+////#IF (NF INCL_COLOR)
+
+/* Static Class: Color
+ * Provides functions for color space conversions.
+ */
+Akari.Utilities.Color = function()
+{
+  var xN = 0.95047;
+  var yN = 1.0000;
+  var zN = 1.08883;
+
+  var labInvF = function( t )
+  {
+    if ( t > 0.008856451679035631 )
+    {
+      return t * t * t;
+    }
+    else
+    {
+      return 0.12841854934601665 * ( t - 0.13793103448275862 );
+    }
+  };
+
+  return {
+    hslToRgb : function( hsl )
+    {
+      var h = hsl[ 1 ] % 360;
+      var c = ( 1 - Math.abs( 2 * hsl[ 3 ] - 1 ) ) * hsl[ 2 ];
+      var x = c * ( 1 - Math.abs( ( h / 60 ) % 2 - 1 ) );
+      var m = hsl[ 3 ] - c / 2;
+
+      if ( h < 60 )
+      {
+        return [ c + m, x + m, m ];
+      }
+      if ( h < 120 )
+      {
+        return [ x + m, c + m, m ];
+      }
+      if ( h < 180 )
+      {
+        return [ m, c + m, x + m ];
+      }
+      if ( h < 240 )
+      {
+        return [ m, x + m, c + m ];
+      }
+      if ( h < 300 )
+      {
+        return [ x + m, m, c + m ];
+      }
+      return [ hsl[ 0 ], c + m, m, x + m ];
+    },
+
+    labToRgb : function( lab )
+    {
+      var t = ( lab[ 1 ] + 16 ) / 116;
+
+      var xyz =
+      [
+        xN * labInvF( t + lab[ 2 ] / 500 ),
+        yN * labInvF( t ),
+        zN * labInvF( t - lab[ 3 ] / 200 )
+      ];
+
+      var rgb =
+      [
+        lab[ 0 ],
+        3.2406 * xyz[ 0 ] - 1.5372 * xyz[ 1 ] - 0.4986 * xyz[ 2 ],
+        - 0.9689 * xyz[ 0 ] + 1.8758 * xyz[ 1 ] + 0.0415 * xyz[ 2 ],
+        0.0557 * xyz[ 0 ] - 0.2040 * xyz[ 1 ] + 1.0570 * xyz[ 2 ]
+      ];
+
+      for ( var i = 2; i >= 1; i -- )
+      {
+        if ( rgb[ 0 + i ] > 0.0031308 )
+        {
+          rgb[ 0 + i ] = 1.055 * Math.pow( rgb[ 0 + i ], 1 / 2.4 ) - 0.055;
+        }
+        else
+        {
+          rgb[ 0 + i ] = 12.92 * rgb[ 0 + i ];
+        }
+      }
+
+      return rgb;
+    },
+
+    rgbToHardware : function( rgb )
+    {
+      var r = Math.min( 255, Math.max( 0, Math.floor( rgb[ 1 ] * 255 ) ) );
+      var g = Math.min( 255, Math.max( 0, Math.floor( rgb[ 2 ] * 255 ) ) );
+      var b = Math.min( 255, Math.max( 0, Math.floor( rgb[ 3 ] * 255 ) ) );
+      return ( r << 16 ) | ( g << 8 ) | b;
+    },
+
+    rgbToTransformTint : function( rgb )
+    {
+      return $.createColorTransform( rgb[ 1 ], rgb[ 2 ], rgb[ 3 ], rgb[ 0 ] );
+    },
+
+    rgbToTransformAdd : function( rgb )
+    {
+      return $.createColorTransform( 1, 1, 1 ,1, rgb[ 1 ] * 255, rgb[ 2 ] * 255, rgb[ 3 ] * 255, rgb[ 0 ] * 255 );
+    }
+  };
+}();
+
+////#ENDIF
 
 ////#IF (NF INCL_VECTOR)
 

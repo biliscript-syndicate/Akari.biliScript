@@ -534,8 +534,6 @@ Akari.Display.Text = function( preserveGlow )
 
 ////#ENDIF
 
-////#IF (NF INCL_SHAND)
-
 /* Class: Solid
  * A solid color layer source.
  *
@@ -556,6 +554,8 @@ Akari.Display.Solid = function( params )
   
   return shape;
 };
+
+////#IF (NF INCL_SHAND)
 
 /* Class: Anchor
  * Anchors the layer source at a specific point

@@ -1,4 +1,4 @@
-/* Akari.biliScript - v20130618 debug
+/* Akari.biliScript - v20130708 debug
  * Copyright (C) 2013 
  * <https://github.com/akaza-akari/Akari.biliScript>
  *
@@ -96,12 +96,14 @@ Akari.root = function()
 }();
 ( function()
 {
-  var names = [ "FLASH", "BINDER", "LAYER", "COMP", "KEYFR", "CURVE", "SORT" ];
-  var colors = [ 0xFFFFFF, 0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0x00FFFF, 0xFF00FF ];
+  var names = [];
+  var colors = [];
   var stack = [];
   var finishTimes = [];
   var baseTime = getTimer();
   var offsetTime = 0;
+
+  Akari.processID = {};
 
   Akari.performanceDisplay = function()
   {
@@ -145,6 +147,10 @@ Akari.root = function()
     if( remainTime > 0 )
     {
       Akari.performanceDisplay.text += Math.floor( remainTime * 100 / offsetTime ) + "% Unexplained " + remainTime;
+      Akari.performanceGraph.graphics.beginFill( 0x303030 );
+      Akari.performanceGraph.graphics.drawRect( ( offsetTime - remainTime ) * $.width / offsetTime, 0, remainTime * $.width / offsetTime, 8 );
+      Akari.performanceGraph.graphics.endFill();
+
     }
 
     stack = [];
@@ -155,11 +161,13 @@ Akari.root = function()
   Akari.intoProcess = function( id )
   {
     stack.push( [ id, getTimer(), 0 ] );
+    Global._set( "__stack_akari", stack.join( " | " ) );
   };
 
   Akari.outOfProcess = function()
   {
     var data = stack.pop();
+    Global._set( "__stack_akari", stack.join( " | " ) );
     if ( data )
     {
       var delta = getTimer() - data[ 1 ] - data[ 2 ];
@@ -171,7 +179,28 @@ Akari.root = function()
     }
   };
 
-  Akari.processID = { FLASH : 0, BINDER : 1, LAYER : 2, COMP : 3, KEYFR : 4, CURVE : 5, SORT : 6 };
+  Akari.traceStack = function()
+  {
+    trace( Global._get( "__stack_akari" ) );
+  };
+
+  Akari.registerProcess = function( name, color )
+  {
+    var id = names.length;
+    Akari.processID[ "" + name ] = id;
+    names[ id ] = name;
+    colors[ id ] = color;
+  };
+
+  Akari.registerProcess( "FLASH", 0xFFFFFF );
+  Akari.registerProcess( "COMP", 0xFF0000 );
+  Akari.registerProcess( "SORT", 0x00FF00 );
+  Akari.registerProcess( "LAYER", 0x0000FF );
+  Akari.registerProcess( "BINDER", 0xFFFF00 );
+  Akari.registerProcess( "KEYFR", 0x00FFFF );
+  Akari.registerProcess( "CURVE", 0xFF00FF );
+
+  Akari.registerProcess( "USER", 0x808080 );
 
 } )();
 
@@ -453,15 +482,15 @@ Akari.Utilities.Binder = function()
 
       if ( typeof( obj ) === "function" )
       {
-        changeType = "func";
+        changeType = 100;
       }
       else if ( obj.hasOwnProperty( "linkFunc" ) )
       {
-        changeType = obj.linkFunc ? "linkFunc" : "link";
+        changeType = obj.linkFunc ? 201 : 200;
       }
       else if ( obj.hasOwnProperty( "multiFunc" ) )
       {
-        changeType = "multi";
+        changeType = 300;
       }
       else
       {
@@ -479,7 +508,7 @@ Akari.Utilities.Binder = function()
 
     for ( var k = registry.length; k --; )
     {
-      if ( registry[ k ][ 2 ] === "linkFunc" || registry[ k ][ 2 ] === "link" )
+      if ( registry[ k ][ 2 ] === 201 || registry[ k ][ 2 ] === 200 )
       {
         var dependency = [];
         var names = [ registry[ k ][ 1 ].names ];
@@ -490,7 +519,7 @@ Akari.Utilities.Binder = function()
           dependency = dependency.concat( currentNames );
           for ( var n = currentNames.length; n --; )
           {
-            if ( registry[ 0 + lookup[ "" + currentNames[ n ] ] ][ 2 ] === "linkFunc" || registry[ 0 + lookup[ "" + currentNames[ n ] ] ][ 2 ] === "link" )
+            if ( registry[ 0 + lookup[ "" + currentNames[ n ] ] ][ 2 ] === 201 || registry[ 0 + lookup[ "" + currentNames[ n ] ] ][ 2 ] === 200 )
             {
               names.push( registry[ 0 + lookup[ "" + currentNames[ n ] ] ][ 1 ].names );
             }
@@ -531,9 +560,18 @@ Akari.Utilities.Binder = function()
       return 0;
     });
 
+    var loopStart = registry.length;
     for ( var k = registry.length; k --; )
     {
       lookup[ registry[ k ][ 0 ] ] = k;
+      if ( registry[ k ][ 2 ] )
+      {
+        loopStart = k;
+      }
+      else
+      {
+        setParam( params.object, registry[ k ][ 0 ], registry[ k ][ 4 ] );
+      }
     }
     
     return
@@ -552,18 +590,22 @@ Akari.Utilities.Binder = function()
       {
         Akari.intoProcess( Akari.processID.BINDER );
 
-        for ( var i = 0; i < registry.length; i ++ )
+        for ( var i = loopStart; i < registry.length; i ++ )
         {
           switch ( registry[ i ][ 2 ] )
           {
-            case "func" :
+            case 100 :
+              Akari.intoProcess( Akari.processID.USER );
+
               registry[ i ][ 4 ] = registry[ i ][ 1 ].apply( scope || params.object, [ time ] );
+              Akari.outOfProcess();
+
               break;
-            case "link" :
+            case 200 :
               // should be computed already
               registry[ i ][ 4 ] = registry[ 0 + lookup[ "" + registry[ i ][ 3 ][ 0 ] ] ][ 4 ];
               break;
-            case "linkFunc" :
+            case 201 :
               var funcArgs = [];
               var names = registry[ i ][ 3 ];
 
@@ -573,11 +615,18 @@ Akari.Utilities.Binder = function()
               }
 
               funcArgs.push( time );
+              Akari.intoProcess( Akari.processID.USER );
 
               registry[ i ][ 4 ] = registry[ i ][ 1 ].linkFunc.apply( scope || params.object, funcArgs );
+              Akari.outOfProcess();
+
               break;
-            case "multi" :
+            case 300 :
+              Akari.intoProcess( Akari.processID.USER );
+
               registry[ i ][ 4 ] = registry[ i ][ 1 ].multiFunc.apply( scope || params.object, [ time ] );
+              Akari.outOfProcess();
+
               var names = registry[ i ][ 1 ].names;
 
               for ( var a = 0; a < names.length; a ++ )
@@ -632,6 +681,111 @@ Akari.Utilities.Binder = function()
   };
   
   return binderClass;
+}();
+/* Static Class: Color
+ * Provides functions for color space conversions.
+ */
+Akari.Utilities.Color = function()
+{
+  var xN = 0.95047;
+  var yN = 1.0000;
+  var zN = 1.08883;
+
+  var labInvF = function( t )
+  {
+    if ( t > 0.008856451679035631 )
+    {
+      return t * t * t;
+    }
+    else
+    {
+      return 0.12841854934601665 * ( t - 0.13793103448275862 );
+    }
+  };
+
+  return {
+    hslToRgb : function( hsl )
+    {
+      var h = hsl[ 1 ] % 360;
+      var c = ( 1 - Math.abs( 2 * hsl[ 3 ] - 1 ) ) * hsl[ 2 ];
+      var x = c * ( 1 - Math.abs( ( h / 60 ) % 2 - 1 ) );
+      var m = hsl[ 3 ] - c / 2;
+
+      if ( h < 60 )
+      {
+        return [ c + m, x + m, m ];
+      }
+      if ( h < 120 )
+      {
+        return [ x + m, c + m, m ];
+      }
+      if ( h < 180 )
+      {
+        return [ m, c + m, x + m ];
+      }
+      if ( h < 240 )
+      {
+        return [ m, x + m, c + m ];
+      }
+      if ( h < 300 )
+      {
+        return [ x + m, m, c + m ];
+      }
+      return [ hsl[ 0 ], c + m, m, x + m ];
+    },
+
+    labToRgb : function( lab )
+    {
+      var t = ( lab[ 1 ] + 16 ) / 116;
+
+      var xyz =
+      [
+        xN * labInvF( t + lab[ 2 ] / 500 ),
+        yN * labInvF( t ),
+        zN * labInvF( t - lab[ 3 ] / 200 )
+      ];
+
+      var rgb =
+      [
+        lab[ 0 ],
+        3.2406 * xyz[ 0 ] - 1.5372 * xyz[ 1 ] - 0.4986 * xyz[ 2 ],
+        - 0.9689 * xyz[ 0 ] + 1.8758 * xyz[ 1 ] + 0.0415 * xyz[ 2 ],
+        0.0557 * xyz[ 0 ] - 0.2040 * xyz[ 1 ] + 1.0570 * xyz[ 2 ]
+      ];
+
+      for ( var i = 2; i >= 1; i -- )
+      {
+        if ( rgb[ 0 + i ] > 0.0031308 )
+        {
+          rgb[ 0 + i ] = 1.055 * Math.pow( rgb[ 0 + i ], 1 / 2.4 ) - 0.055;
+        }
+        else
+        {
+          rgb[ 0 + i ] = 12.92 * rgb[ 0 + i ];
+        }
+      }
+
+      return rgb;
+    },
+
+    rgbToHardware : function( rgb )
+    {
+      var r = Math.min( 255, Math.max( 0, Math.floor( rgb[ 1 ] * 255 ) ) );
+      var g = Math.min( 255, Math.max( 0, Math.floor( rgb[ 2 ] * 255 ) ) );
+      var b = Math.min( 255, Math.max( 0, Math.floor( rgb[ 3 ] * 255 ) ) );
+      return ( r << 16 ) | ( g << 8 ) | b;
+    },
+
+    rgbToTransformTint : function( rgb )
+    {
+      return $.createColorTransform( rgb[ 1 ], rgb[ 2 ], rgb[ 3 ], rgb[ 0 ] );
+    },
+
+    rgbToTransformAdd : function( rgb )
+    {
+      return $.createColorTransform( 1, 1, 1 ,1, rgb[ 1 ] * 255, rgb[ 2 ] * 255, rgb[ 3 ] * 255, rgb[ 0 ] * 255 );
+    }
+  };
 }();
 /* Static Class: Vector
  * Provides functions for vector operations.
@@ -862,7 +1016,6 @@ Akari.Utilities.Randomizer = function()
  */
 
 Akari.Animation = {};
-
 /* Class: BezierComponent
  * Represents one component of a bezier curve.
  *
@@ -1429,6 +1582,44 @@ Akari.Animation.Bezier = function()
   };
 }();
  
+/* Class: CurveTrace
+ * Traces through a Curve.
+ *
+ * curve
+ *   The Curve to use.
+ * animation
+ *   A Function( time ) that maps time to coefficient or length on the curve.
+ * mode
+ *   [default] "lengthProportion"
+ *   "coefficient", "length" or "lengthProportion", how the value returned from the function is interpreted.
+ */
+Akari.Animation.CurveTrace = function( params )
+{
+  var mode = params.mode || "lengthProportion";
+
+  if ( mode === "lengthProportion" )
+  {
+    return function( time )
+    {
+      return params.curve.evaluateAtLength( params.animation( time ) * params.curve.getLength() );
+    };
+  }
+  else if ( mode === "length" )
+  {
+    return function( time )
+    {
+      return params.curve.evaluateAtLength( params.animation( time ) );
+    };
+  }
+  else
+  {
+    return function( time )
+    {
+      return params.curve.evaluateAt( params.animation( time ) );
+    };
+  }
+};
+
 /* Static Class: Interpolation
  * Provides functions for interpolating between numbers.
  *
@@ -1462,6 +1653,22 @@ Akari.Animation.Interpolation =
       
       return result;
     };
+  },
+  
+  /* Function: hold
+   * Holds value1
+   */
+  hold : function( t, value1, value2 )
+  {
+    return value1;
+  },
+
+  /* Function: linear
+   * Interpolates in linear manner.
+   */
+  linear : function( t, value1, value2 )
+  {
+    return value1 + ( value2 - value1 ) * t;
   },
 
   /* Function: bezier
@@ -1687,22 +1894,6 @@ Akari.Animation.Interpolation =
 
       return value1 + ( value2 - value1 ) * tD;
     };
-  },
-  
-  /* Function: hold
-   * Holds value1
-   */
-  hold : function( t, value1, value2 )
-  {
-    return value1;
-  },
-  
-  /* Function: linear
-   * Interpolates in linear manner.
-   */
-  linear : function( t, value1, value2 )
-  {
-    return value1 + ( value2 - value1 ) * t;
   },
   
   /* Function Group: cubic
@@ -2014,7 +2205,6 @@ Akari.Animation.KeyframesBind = function( params )
     }
   };
 };
-
 /* Class: WiggleKeyframes
  * A set of keyframes that make a wiggle effect.
  *
@@ -2028,6 +2218,9 @@ Akari.Animation.KeyframesBind = function( params )
  *   Time (in milliseconds) each step will last for.
  * amount
  *   Strength of the effect.
+ * rng
+ *   [default] Akari.Utilities.Randomizer
+ *   RNG to use when generating random vector.
  * interpolation
  *   [default] Interpolation.cubic.easeInOut
  *   Function used to interpolate between values.
@@ -2037,70 +2230,24 @@ Akari.Animation.KeyframesBind = function( params )
  */
 Akari.Animation.WiggleKeyframes = function( params )
 {
-  // Private function for a random vector
-  var vectorRandom = function( n )
-  {
-    var result = [];
-    
-    for( var i = 0; i < n; i ++ )
-    {
-      result[ i ] = Math.random() - 0.5;
-    }
-    return result;
-  };
-  
-  // Private function for vector length
-  var vectorLength = function( vector )
-  {
-    var sum = 0;
-    
-    for( var i = 0; i < vector.length; i ++ )
-    {
-      sum += vector[ i ] * vector[ i ];
-    }
-    return Math.sqrt( sum );
-  };
-  
-  // Private function for scaling vector
-  var vectorScale = function( vector, scalar )
-  {
-    var result = [];
-    
-    for( var i = 0; i < vector.length; i ++ )
-    {
-      result[ i ] = vector[ i ] * scalar;
-    }
-    return result;
-  };
-  
-  // Private function for adding vector
-  var vectorAdd = function( vector1, vector2 )
-  {
-    var result = [];
-    
-    for( var i = 0; i < vector1.length; i ++ )
-    {
-      result[ i ] = vector1[ i ] + vector2[ i ];
-    }
-    return result;
-  };
-  
+  var rng = params.rng || Akari.Utilities.Randomizer;
+
   // Private function for randomizing with base
   var randomize = function( origin )
   {
     if ( origin.hasOwnProperty("length") )
     {
-      var randVector = vectorRandom( origin.length );
+      var randVector = rng.vector( origin.length );
       
       // Scale vector to fit amount constraint
-      var scaledVector = vectorScale( randVector, params.amount / vectorLength( randVector ) );
+      var scaledVector = Akari.Utilities.Vector.scale( randVector, params.amount / vectorLength( randVector ) );
       
-      return vectorAdd( origin, scaledVector );
+      return Akari.Utilities.Vector.add( origin, scaledVector );
     }
     else
     {
       // Origin is not Array, return a simple randomization
-      return origin + params.amount * ( Math.random() - 0.5 );
+      return origin + params.amount * ( rng.uniform() - 0.5 );
     }
   };
   
@@ -2130,44 +2277,6 @@ Akari.Animation.WiggleKeyframes = function( params )
     keyframes.push( Akari.Animation.Keyframe({ time : params.startTime + params.stepTime * ( ++ c ), value : keyframes[ 0 ].value, interpolation : params.interpolation || Akari.Animation.Interpolation.cubic.easeInOut }) );
     
     return keyframes;
-  }
-};
- 
-/* Class: CurveTrace
- * Traces through a Curve.
- *
- * curve
- *   The Curve to use.
- * animation
- *   A Function( time ) that maps time to coefficient or length on the curve.
- * mode
- *   [default] "lengthProportion"
- *   "coefficient", "length" or "lengthProportion", how the value returned from the function is interpreted.
- */
-Akari.Animation.CurveTrace = function( params )
-{
-  var mode = params.mode || "lengthProportion";
-
-  if ( mode === "lengthProportion" )
-  {
-    return function( time )
-    {
-      return params.curve.evaluateAtLength( params.animation( time ) * params.curve.getLength() );
-    };
-  }
-  else if ( mode === "length" )
-  {
-    return function( time )
-    {
-      return params.curve.evaluateAtLength( params.animation( time ) );
-    };
-  }
-  else
-  {
-    return function( time )
-    {
-      return params.curve.evaluateAt( params.animation( time ) );
-    };
   }
 };
 
@@ -2663,6 +2772,7 @@ Akari.Display.Shape = function()
   
   return shape;
 };
+
 /* Class: Solid
  * A solid color layer source.
  *
@@ -2683,7 +2793,6 @@ Akari.Display.Solid = function( params )
   
   return shape;
 };
-
 /* Class: Anchor
  * Anchors the layer source at a specific point
  *
@@ -3163,13 +3272,13 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
   // Create objects for binding and change detection, due to lack of property getter / setters.
   if ( params.font )
   {
-    var lastTextProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : null, fixedWidth : false, fontSize : 200, lineHeight : null, text : "" };
-    var textProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : null, fixedWidth : false, fontSize : 200, lineHeight : null, text : "" };
+    var lastTextProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : null, fixedWidth : false, fontSize : 200, lineHeight : null, text : "", glyphFillColor : 0xFFFFFF, glyphStrokeColor : 0xFFFFFF, glyphStrokeWidth : 0 };
+    var textProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : null, fixedWidth : false, fontSize : 200, lineHeight : null, text : "", glyphFillColor : 0xFFFFFF, glyphStrokeColor : 0xFFFFFF, glyphStrokeWidth : 0 };
   }
   else
   {
-    var lastTextProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "" };
-    var textProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "" };
+    var lastTextProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "", glyphFillColor : 0xFFFFFF, glyphStrokeColor : 0xFFFFFF, glyphStrokeWidth : 0 };
+    var textProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "", glyphFillColor : 0xFFFFFF, glyphStrokeColor : 0xFFFFFF, glyphStrokeWidth : 0 };
   }
   var textPropertiesBinder = Akari.Utilities.Binder({ object : textProperties, properties : params.textProperties || {} });
   
@@ -3193,9 +3302,9 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
     // Update binder and check if anything changes
     textPropertiesBinder.update( time, layer.getBinderScope() );
 
-    var needGlyphReset = textProperties.text != lastTextProperties.text;
-    var needGlyphAdjust =  needGlyphReset || ( params.animators.length > 0 ) ||( textProperties.letterSpacing != lastTextProperties.letterSpacing ) || ( textProperties.fon != lastTextProperties.fontSize );
-    var needAlignmentAdjust = needGlyphAdjust || ( params.animators.length > 0 ) || ( textProperties.horizontalAlign != lastTextProperties.horizontalAlign ) || ( textProperties.verticalAlign != lastTextProperties.verticalAlign ) || ( textProperties.lineHeight != lastTextProperties.lineHeight );
+    var needGlyphReset = textProperties.text != lastTextProperties.text || ( textProperties.glyphFillColor != lastTextProperties.glyphFillColor ) || ( textProperties.glyphStrokeColor != lastTextProperties.glyphStrokeColor ) || ( textProperties.glyphStrokeWidth != lastTextProperties.glyphStrokeWidth );
+    var needGlyphAdjust =  needGlyphReset || ( animators.length > 0 ) ||( textProperties.letterSpacing != lastTextProperties.letterSpacing ) || ( textProperties.fontSize != lastTextProperties.fontSize );
+    var needAlignmentAdjust = needGlyphAdjust || ( animators.length > 0 ) || ( textProperties.horizontalAlign != lastTextProperties.horizontalAlign ) || ( textProperties.verticalAlign != lastTextProperties.verticalAlign ) || ( textProperties.lineHeight != lastTextProperties.lineHeight );
 
     if ( needAlignmentAdjust ) lastTextProperties = Akari.Utilities.Factory.clone( textProperties );
       
@@ -3221,7 +3330,11 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
           {
             if ( params.font.hasOwnProperty( char ) )
             {
-              glyphShape.graphics.beginFill( 0xFFFFFF );
+              glyphShape.graphics.beginFill( textProperties.glyphFillColor );
+              if ( textProperties.glyphStrokeWidth > 0 )
+              {
+                glyphShape.graphics.lineStyle( textProperties.glyphStrokeWidth, textProperties.glyphStrokeColor );
+              }
               glyphShape.graphics.drawPath( params.font[ char ].commands, params.font[ char ].paths, 'nonZero' );
               glyphShape.graphics.endFill();
             }
@@ -3333,11 +3446,11 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
     }
 
     // Deal with animators if needed
-    if ( params.animators.length > 0 )
+    if ( animators.length > 0 )
     {
-      for ( var animatorIndex = 0; animatorIndex < params.animators.length; animatorIndex ++ )
+      for ( var animatorIndex = 0; animatorIndex < animators.length; animatorIndex ++ )
       {
-        params.animators[ animatorIndex ].apply( time, linesContainer );
+        animators[ animatorIndex ].apply( time, linesContainer );
       }
     }
   };
@@ -3417,10 +3530,22 @@ Akari.Display.Three.ThreeContainer = function()
     var vWorld = $.toNumberVector( [] );
     var children = [];
     var childrenRef = [];
+    var childObj = [];
+    var childIndices = [];
 
-    for ( var i = 0; i < numChildren; i ++ )
+    for ( var a = 0; a < numChildren; a ++ )
     {
-      var child = doc.getChildAt( i );
+      var c = doc.getChildAt( a );
+      if ( c.visible )
+      {
+        childObj.push( c );
+        childIndices.push( a );
+      }
+    }
+
+    for ( var i = 0; i < childObj.length; i ++ )
+    {
+      var child = childObj[ 0 + i ];
       var childTransform = child.transform.getRelativeMatrix3D( doc ) || identity;
       var relData = this.getRelatedData( child );
       var sortPoint = childTransform.transformVector( $.createVector3D( relData.sortOffsetX, relData.sortOffsetY, relData.sortOffsetZ ) );
@@ -3430,8 +3555,8 @@ Akari.Display.Three.ThreeContainer = function()
       vLocal.push( sortPoint.z );
 
       // Using this later for sorting
-      children[ i ] = i;
-      childrenRef[ i ] = i;
+      children[ 0 + i ] = i;
+      childrenRef[ 0 + i ] = i;
     }
 
     transform.transformVectors( vLocal, vWorld );
@@ -3442,13 +3567,13 @@ Akari.Display.Three.ThreeContainer = function()
       return vWorld[ b * 3 + 2 ] - vWorld[ a * 3 + 2 ];
     });
 
-    for ( var k = 0; k < numChildren; k ++ )
+    for ( var k = 0; k < childObj.length; k ++ )
     {
-      if ( children[ k ] !== childrenRef[ k ] )
+      if ( children[ 0 + k ] !== childrenRef[ 0 + k ] )
       {
-        doc.swapChildrenAt( childrenRef.indexOf( children[ k ] ), k );
-        childrenRef[ childrenRef.indexOf( children[ k ] ) ] = childrenRef[ k ];
-        childrenRef[ k ] = children[ k ];
+        doc.swapChildrenAt( childIndices[ 0 + childrenRef.indexOf( children[ 0 + k ] ) ], childIndices[ 0 + k ] );
+        childrenRef[ childrenRef.indexOf( children[ 0 + k ] ) ] = childrenRef[ 0 + k ];
+        childrenRef[ 0 + k ] = children[ 0 + k ];
       }
     }
   };
@@ -3519,12 +3644,17 @@ Akari.Display.Three.Camera = function( params )
     outPoint : 0,
     position : [ 0, 0, 0 ],
     target : [ 0, 0, 0 ],
+    rotation : [ 0, 0, 0 ],
     fov : 55
   }, params );
   var valueHolder = {};
   var binder = Akari.Utilities.Binder({ object : valueHolder, properties : properties, overridePathCheck : true });
 
   var proj = clone( Akari.root.transform.perspectiveProjection );
+
+  var xAxis = $.createVector3D( 1, 0, 0 );
+  var yAxis = $.createVector3D( 0, 1, 0 );
+  var zAxis = $.createVector3D( 0, 0, -1 );
 
   return {
     inPoint : properties.inPoint,
@@ -3536,6 +3666,9 @@ Akari.Display.Three.Camera = function( params )
       var matrices = Akari.Display.Three.MatrixUtil.lookAt( valueHolder.position, valueHolder.target );
       this.matrixT = matrices[ 0 ];
       this.matrixR = matrices[ 1 ];
+      this.matrixR.appendRotation( -valueHolder.rotation[ 0 ], xAxis );
+      this.matrixR.appendRotation( -valueHolder.rotation[ 1 ], yAxis );
+      this.matrixR.appendRotation( -valueHolder.rotation[ 2 ], zAxis );
 
       proj.fieldOfView = valueHolder.fov;
       this.projection = proj;

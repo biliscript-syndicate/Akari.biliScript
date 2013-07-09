@@ -66,10 +66,22 @@ Akari.Display.Three.ThreeContainer = function()
     var vWorld = $.toNumberVector( [] );
     var children = [];
     var childrenRef = [];
+    var childObj = [];
+    var childIndices = [];
 
-    for ( var i = 0; i < numChildren; i ++ )
+    for ( var a = 0; a < numChildren; a ++ )
     {
-      var child = doc.getChildAt( i );
+      var c = doc.getChildAt( a );
+      if ( c.visible )
+      {
+        childObj.push( c );
+        childIndices.push( a );
+      }
+    }
+
+    for ( var i = 0; i < childObj.length; i ++ )
+    {
+      var child = childObj[ 0 + i ];
       var childTransform = child.transform.getRelativeMatrix3D( doc ) || identity;
       var relData = this.getRelatedData( child );
       var sortPoint = childTransform.transformVector( $.createVector3D( relData.sortOffsetX, relData.sortOffsetY, relData.sortOffsetZ ) );
@@ -79,8 +91,8 @@ Akari.Display.Three.ThreeContainer = function()
       vLocal.push( sortPoint.z );
 
       // Using this later for sorting
-      children[ i ] = i;
-      childrenRef[ i ] = i;
+      children[ 0 + i ] = i;
+      childrenRef[ 0 + i ] = i;
     }
 
     transform.transformVectors( vLocal, vWorld );
@@ -91,13 +103,13 @@ Akari.Display.Three.ThreeContainer = function()
       return vWorld[ b * 3 + 2 ] - vWorld[ a * 3 + 2 ];
     });
 
-    for ( var k = 0; k < numChildren; k ++ )
+    for ( var k = 0; k < childObj.length; k ++ )
     {
-      if ( children[ k ] !== childrenRef[ k ] )
+      if ( children[ 0 + k ] !== childrenRef[ 0 + k ] )
       {
-        doc.swapChildrenAt( childrenRef.indexOf( children[ k ] ), k );
-        childrenRef[ childrenRef.indexOf( children[ k ] ) ] = childrenRef[ k ];
-        childrenRef[ k ] = children[ k ];
+        doc.swapChildrenAt( childIndices[ 0 + childrenRef.indexOf( children[ 0 + k ] ) ], childIndices[ 0 + k ] );
+        childrenRef[ childrenRef.indexOf( children[ 0 + k ] ) ] = childrenRef[ 0 + k ];
+        childrenRef[ 0 + k ] = children[ 0 + k ];
       }
     }
   };
@@ -170,12 +182,17 @@ Akari.Display.Three.Camera = function( params )
     outPoint : 0,
     position : [ 0, 0, 0 ],
     target : [ 0, 0, 0 ],
+    rotation : [ 0, 0, 0 ],
     fov : 55
   }, params );
   var valueHolder = {};
   var binder = Akari.Utilities.Binder({ object : valueHolder, properties : properties, overridePathCheck : true });
 
   var proj = clone( Akari.root.transform.perspectiveProjection );
+
+  var xAxis = $.createVector3D( 1, 0, 0 );
+  var yAxis = $.createVector3D( 0, 1, 0 );
+  var zAxis = $.createVector3D( 0, 0, -1 );
 
   return {
     inPoint : properties.inPoint,
@@ -187,6 +204,9 @@ Akari.Display.Three.Camera = function( params )
       var matrices = Akari.Display.Three.MatrixUtil.lookAt( valueHolder.position, valueHolder.target );
       this.matrixT = matrices[ 0 ];
       this.matrixR = matrices[ 1 ];
+      this.matrixR.appendRotation( -valueHolder.rotation[ 0 ], xAxis );
+      this.matrixR.appendRotation( -valueHolder.rotation[ 1 ], yAxis );
+      this.matrixR.appendRotation( -valueHolder.rotation[ 2 ], zAxis );
 
       proj.fieldOfView = valueHolder.fov;
       this.projection = proj;

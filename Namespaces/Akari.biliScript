@@ -85,12 +85,14 @@ Akari.root = function()
 
 ( function()
 {
-  var names = [ "FLASH", "BINDER", "LAYER", "COMP", "KEYFR", "CURVE", "SORT" ];
-  var colors = [ 0xFFFFFF, 0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0x00FFFF, 0xFF00FF ];
+  var names = [];
+  var colors = [];
   var stack = [];
   var finishTimes = [];
   var baseTime = getTimer();
   var offsetTime = 0;
+
+  Akari.processID = {};
 
   Akari.performanceDisplay = function()
   {
@@ -139,6 +141,11 @@ Akari.root = function()
     if( remainTime > 0 )
     {
       Akari.performanceDisplay.text += Math.floor( remainTime * 100 / offsetTime ) + "% Unexplained " + remainTime;
+      ////#IF (IST PERF_VISUAL)
+      Akari.performanceGraph.graphics.beginFill( 0x303030 );
+      Akari.performanceGraph.graphics.drawRect( ( offsetTime - remainTime ) * $.width / offsetTime, 0, remainTime * $.width / offsetTime, 8 );
+      Akari.performanceGraph.graphics.endFill();
+      ////#ENDIF
     }
 
     stack = [];
@@ -149,11 +156,13 @@ Akari.root = function()
   Akari.intoProcess = function( id )
   {
     stack.push( [ id, getTimer(), 0 ] );
+    Global._set( "__stack_akari", stack.join( " | " ) );
   };
 
   Akari.outOfProcess = function()
   {
     var data = stack.pop();
+    Global._set( "__stack_akari", stack.join( " | " ) );
     if ( data )
     {
       var delta = getTimer() - data[ 1 ] - data[ 2 ];
@@ -165,7 +174,28 @@ Akari.root = function()
     }
   };
 
-  Akari.processID = { FLASH : 0, BINDER : 1, LAYER : 2, COMP : 3, KEYFR : 4, CURVE : 5, SORT : 6 };
+  Akari.traceStack = function()
+  {
+    trace( Global._get( "__stack_akari" ) );
+  };
+
+  Akari.registerProcess = function( name, color )
+  {
+    var id = names.length;
+    Akari.processID[ "" + name ] = id;
+    names[ id ] = name;
+    colors[ id ] = color;
+  };
+
+  Akari.registerProcess( "FLASH", 0xFFFFFF );
+  Akari.registerProcess( "COMP", 0xFF0000 );
+  Akari.registerProcess( "SORT", 0x00FF00 );
+  Akari.registerProcess( "LAYER", 0x0000FF );
+  Akari.registerProcess( "BINDER", 0xFFFF00 );
+  Akari.registerProcess( "KEYFR", 0x00FFFF );
+  Akari.registerProcess( "CURVE", 0xFF00FF );
+
+  Akari.registerProcess( "USER", 0x808080 );
 
 } )();
 

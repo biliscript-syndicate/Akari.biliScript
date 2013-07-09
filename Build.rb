@@ -167,8 +167,8 @@ if FileTest.exists?( template_file )
       end
 
       template_string.gsub!( /\/\/.*?$/m, "" )
-      template_string.gsub!( /\s*([;:,={}()\[\]])\s*/ ) do |s|
-          next $1
+      template_string.gsub!( /\s*([;:,+\-*\/={}()\[\]])\s*/ ) do |s|
+        next $1
       end
       template_string.gsub!( /\s{2,}/, " " );
 

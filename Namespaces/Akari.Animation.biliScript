@@ -9,6 +9,8 @@
 
 Akari.Animation = {};
 
+////#IF (NF INCL_SPLN)
+
 /* Class: BezierComponent
  * Represents one component of a bezier curve.
  *
@@ -578,6 +580,46 @@ Akari.Animation.Bezier = function()
   };
 }();
  
+/* Class: CurveTrace
+ * Traces through a Curve.
+ *
+ * curve
+ *   The Curve to use.
+ * animation
+ *   A Function( time ) that maps time to coefficient or length on the curve.
+ * mode
+ *   [default] "lengthProportion"
+ *   "coefficient", "length" or "lengthProportion", how the value returned from the function is interpreted.
+ */
+Akari.Animation.CurveTrace = function( params )
+{
+  var mode = params.mode || "lengthProportion";
+
+  if ( mode === "lengthProportion" )
+  {
+    return function( time )
+    {
+      return params.curve.evaluateAtLength( params.animation( time ) * params.curve.getLength() );
+    };
+  }
+  else if ( mode === "length" )
+  {
+    return function( time )
+    {
+      return params.curve.evaluateAtLength( params.animation( time ) );
+    };
+  }
+  else
+  {
+    return function( time )
+    {
+      return params.curve.evaluateAt( params.animation( time ) );
+    };
+  }
+};
+
+////#ENDIF
+ 
 /* Static Class: Interpolation
  * Provides functions for interpolating between numbers.
  *
@@ -611,6 +653,22 @@ Akari.Animation.Interpolation =
       
       return result;
     };
+  },
+  
+  /* Function: hold
+   * Holds value1
+   */
+  hold : function( t, value1, value2 )
+  {
+    return value1;
+  },
+
+  /* Function: linear
+   * Interpolates in linear manner.
+   */
+  linear : function( t, value1, value2 )
+  {
+    return value1 + ( value2 - value1 ) * t;
   },
 
   /* Function: bezier
@@ -836,22 +894,6 @@ Akari.Animation.Interpolation =
 
       return value1 + ( value2 - value1 ) * tD;
     };
-  },
-  
-  /* Function: hold
-   * Holds value1
-   */
-  hold : function( t, value1, value2 )
-  {
-    return value1;
-  },
-  
-  /* Function: linear
-   * Interpolates in linear manner.
-   */
-  linear : function( t, value1, value2 )
-  {
-    return value1 + ( value2 - value1 ) * t;
   },
   
   /* Function Group: cubic
@@ -1170,6 +1212,9 @@ Akari.Animation.KeyframesBind = function( params )
   };
 };
 
+////#IF (NF INCL_VECTOR)
+////#IF (NF INCL_RAND)
+
 /* Class: WiggleKeyframes
  * A set of keyframes that make a wiggle effect.
  *
@@ -1183,6 +1228,9 @@ Akari.Animation.KeyframesBind = function( params )
  *   Time (in milliseconds) each step will last for.
  * amount
  *   Strength of the effect.
+ * rng
+ *   [default] Akari.Utilities.Randomizer
+ *   RNG to use when generating random vector.
  * interpolation
  *   [default] Interpolation.cubic.easeInOut
  *   Function used to interpolate between values.
@@ -1192,70 +1240,24 @@ Akari.Animation.KeyframesBind = function( params )
  */
 Akari.Animation.WiggleKeyframes = function( params )
 {
-  // Private function for a random vector
-  var vectorRandom = function( n )
-  {
-    var result = [];
-    
-    for( var i = 0; i < n; i ++ )
-    {
-      result[ i ] = Math.random() - 0.5;
-    }
-    return result;
-  };
-  
-  // Private function for vector length
-  var vectorLength = function( vector )
-  {
-    var sum = 0;
-    
-    for( var i = 0; i < vector.length; i ++ )
-    {
-      sum += vector[ i ] * vector[ i ];
-    }
-    return Math.sqrt( sum );
-  };
-  
-  // Private function for scaling vector
-  var vectorScale = function( vector, scalar )
-  {
-    var result = [];
-    
-    for( var i = 0; i < vector.length; i ++ )
-    {
-      result[ i ] = vector[ i ] * scalar;
-    }
-    return result;
-  };
-  
-  // Private function for adding vector
-  var vectorAdd = function( vector1, vector2 )
-  {
-    var result = [];
-    
-    for( var i = 0; i < vector1.length; i ++ )
-    {
-      result[ i ] = vector1[ i ] + vector2[ i ];
-    }
-    return result;
-  };
-  
+  var rng = params.rng || Akari.Utilities.Randomizer;
+
   // Private function for randomizing with base
   var randomize = function( origin )
   {
     if ( origin.hasOwnProperty("length") )
     {
-      var randVector = vectorRandom( origin.length );
+      var randVector = rng.vector( origin.length );
       
       // Scale vector to fit amount constraint
-      var scaledVector = vectorScale( randVector, params.amount / vectorLength( randVector ) );
+      var scaledVector = Akari.Utilities.Vector.scale( randVector, params.amount / vectorLength( randVector ) );
       
-      return vectorAdd( origin, scaledVector );
+      return Akari.Utilities.Vector.add( origin, scaledVector );
     }
     else
     {
       // Origin is not Array, return a simple randomization
-      return origin + params.amount * ( Math.random() - 0.5 );
+      return origin + params.amount * ( rng.uniform() - 0.5 );
     }
   };
   
@@ -1287,43 +1289,8 @@ Akari.Animation.WiggleKeyframes = function( params )
     return keyframes;
   }
 };
- 
-/* Class: CurveTrace
- * Traces through a Curve.
- *
- * curve
- *   The Curve to use.
- * animation
- *   A Function( time ) that maps time to coefficient or length on the curve.
- * mode
- *   [default] "lengthProportion"
- *   "coefficient", "length" or "lengthProportion", how the value returned from the function is interpreted.
- */
-Akari.Animation.CurveTrace = function( params )
-{
-  var mode = params.mode || "lengthProportion";
 
-  if ( mode === "lengthProportion" )
-  {
-    return function( time )
-    {
-      return params.curve.evaluateAtLength( params.animation( time ) * params.curve.getLength() );
-    };
-  }
-  else if ( mode === "length" )
-  {
-    return function( time )
-    {
-      return params.curve.evaluateAtLength( params.animation( time ) );
-    };
-  }
-  else
-  {
-    return function( time )
-    {
-      return params.curve.evaluateAt( params.animation( time ) );
-    };
-  }
-};
+////#ENDIF
+////#ENDIF
 
 ////#ENDIF

@@ -216,13 +216,13 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
   // Create objects for binding and change detection, due to lack of property getter / setters.
   if ( params.font )
   {
-    var lastTextProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : null, fixedWidth : false, fontSize : 200, lineHeight : null, text : "" };
-    var textProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : null, fixedWidth : false, fontSize : 200, lineHeight : null, text : "" };
+    var lastTextProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : null, fixedWidth : false, fontSize : 200, lineHeight : null, text : "", glyphFillColor : 0xFFFFFF, glyphStrokeColor : 0xFFFFFF, glyphStrokeWidth : 0 };
+    var textProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : null, fixedWidth : false, fontSize : 200, lineHeight : null, text : "", glyphFillColor : 0xFFFFFF, glyphStrokeColor : 0xFFFFFF, glyphStrokeWidth : 0 };
   }
   else
   {
-    var lastTextProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "" };
-    var textProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "" };
+    var lastTextProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "", glyphFillColor : 0xFFFFFF, glyphStrokeColor : 0xFFFFFF, glyphStrokeWidth : 0 };
+    var textProperties = { horizontalAlign : "left", verticalAlign : "top", letterSpacing : 20, fixedWidth : false, fontSize : 200, lineHeight : 240, text : "", glyphFillColor : 0xFFFFFF, glyphStrokeColor : 0xFFFFFF, glyphStrokeWidth : 0 };
   }
   var textPropertiesBinder = Akari.Utilities.Binder({ object : textProperties, properties : params.textProperties || {} });
   
@@ -246,9 +246,9 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
     // Update binder and check if anything changes
     textPropertiesBinder.update( time, layer.getBinderScope() );
 
-    var needGlyphReset = textProperties.text != lastTextProperties.text;
-    var needGlyphAdjust =  needGlyphReset || ( params.animators.length > 0 ) ||( textProperties.letterSpacing != lastTextProperties.letterSpacing ) || ( textProperties.fon != lastTextProperties.fontSize );
-    var needAlignmentAdjust = needGlyphAdjust || ( params.animators.length > 0 ) || ( textProperties.horizontalAlign != lastTextProperties.horizontalAlign ) || ( textProperties.verticalAlign != lastTextProperties.verticalAlign ) || ( textProperties.lineHeight != lastTextProperties.lineHeight );
+    var needGlyphReset = textProperties.text != lastTextProperties.text || ( textProperties.glyphFillColor != lastTextProperties.glyphFillColor ) || ( textProperties.glyphStrokeColor != lastTextProperties.glyphStrokeColor ) || ( textProperties.glyphStrokeWidth != lastTextProperties.glyphStrokeWidth );
+    var needGlyphAdjust =  needGlyphReset || ( animators.length > 0 ) ||( textProperties.letterSpacing != lastTextProperties.letterSpacing ) || ( textProperties.fontSize != lastTextProperties.fontSize );
+    var needAlignmentAdjust = needGlyphAdjust || ( animators.length > 0 ) || ( textProperties.horizontalAlign != lastTextProperties.horizontalAlign ) || ( textProperties.verticalAlign != lastTextProperties.verticalAlign ) || ( textProperties.lineHeight != lastTextProperties.lineHeight );
 
     if ( needAlignmentAdjust ) lastTextProperties = Akari.Utilities.Factory.clone( textProperties );
       
@@ -274,7 +274,11 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
           {
             if ( params.font.hasOwnProperty( char ) )
             {
-              glyphShape.graphics.beginFill( 0xFFFFFF );
+              glyphShape.graphics.beginFill( textProperties.glyphFillColor );
+              if ( textProperties.glyphStrokeWidth > 0 )
+              {
+                glyphShape.graphics.lineStyle( textProperties.glyphStrokeWidth, textProperties.glyphStrokeColor );
+              }
               glyphShape.graphics.drawPath( params.font[ char ].commands, params.font[ char ].paths, 'nonZero' );
               glyphShape.graphics.endFill();
             }
@@ -386,11 +390,11 @@ Akari.Display.Text.DynamicVectorTextLayer = function( params )
     }
 
     // Deal with animators if needed
-    if ( params.animators.length > 0 )
+    if ( animators.length > 0 )
     {
-      for ( var animatorIndex = 0; animatorIndex < params.animators.length; animatorIndex ++ )
+      for ( var animatorIndex = 0; animatorIndex < animators.length; animatorIndex ++ )
       {
-        params.animators[ animatorIndex ].apply( time, linesContainer );
+        animators[ animatorIndex ].apply( time, linesContainer );
       }
     }
   };
