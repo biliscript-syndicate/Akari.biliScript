@@ -1,4 +1,4 @@
-/* Akari.biliScript - v20130730 debug
+/* Akari.biliScript - v20130730 
  * Copyright (C) 2013 
  * <https://github.com/akaza-akari/Akari.biliScript>
  *
@@ -18,6 +18,10 @@
  * section 4, provided you include this license notice and a URL
  * through which recipients can access the Corresponding Source.
  */
+if ( Global._get( "__isExecuted_akari" ) )
+{
+  stopExecution();
+}
 
 /* Namespace: Akari
  * Contains several namespace level functions.
@@ -40,9 +44,6 @@ Akari.execute = function( mainComp )
   
   // Set global value to indicate usage
   Global._set( "__isExecuted_akari", true );
-  Akari.root.addChild( Akari.performanceGraph );
-
-  Akari.root.addChild( Akari.performanceDisplay );
 
 };
 
@@ -56,8 +57,6 @@ Akari.stop = function()
     ( Global._get("__mainComp_akari") ).detach();
     Global._set( "__mainComp_akari", null );
     Global._set( "__isExecuted_akari", null );
-    Akari.root.removeChild( Akari.performanceDisplay );
-    Akari.root.removeChild( Akari.performanceGraph );
 
   }
 };
@@ -94,115 +93,6 @@ Akari.root = function()
     return sprite;
   }
 }();
-( function()
-{
-  var names = [];
-  var colors = [];
-  var stack = [];
-  var finishTimes = [];
-  var baseTime = getTimer();
-  var offsetTime = 0;
-
-  Akari.processID = {};
-
-  Akari.performanceDisplay = function()
-  {
-    var perfMon = $.createComment( "", { lifeTime : 1, fontsize : 12, color : 0xFFFFFF } );
-    ScriptManager.popEl( perfMon );
-    perfMon.transform.matrix3D = null;
-    return perfMon;
-  }();
-  Akari.performanceGraph = function()
-  {
-    var perfMon = $.createShape( { lifeTime : 1 } );
-    ScriptManager.popEl( perfMon );
-    perfMon.transform.matrix3D = null;
-    return perfMon;
-  }();
-
-  Akari.updatePerformanceDisplay = function()
-  {
-    var offsetTime = getTimer() - baseTime;
-    var remainTime = offsetTime;
-    var processTime = 0;
-
-    Akari.performanceDisplay.text = "";
-    Akari.performanceGraph.graphics.clear();
-    var graphPos = 0;
-
-    for ( var i = 0; i < names.length; i ++ )
-    {
-      processTime = finishTimes[ 0 + i ];
-      if ( processTime > 0 )
-      {
-        Akari.performanceDisplay.text += Math.floor( processTime * 100 / offsetTime ) + "% " + names[ 0 + i ] + " " + processTime + "\n";
-        Akari.performanceGraph.graphics.beginFill( colors[ i ] );
-        Akari.performanceGraph.graphics.drawRect( ( offsetTime - remainTime ) * $.width / offsetTime, 0, processTime * $.width / offsetTime, 8 );
-        Akari.performanceGraph.graphics.endFill();
-
-        remainTime -= processTime;
-      }
-    }
-
-    if( remainTime > 0 )
-    {
-      Akari.performanceDisplay.text += Math.floor( remainTime * 100 / offsetTime ) + "% Unexplained " + remainTime;
-      Akari.performanceGraph.graphics.beginFill( 0x303030 );
-      Akari.performanceGraph.graphics.drawRect( ( offsetTime - remainTime ) * $.width / offsetTime, 0, remainTime * $.width / offsetTime, 8 );
-      Akari.performanceGraph.graphics.endFill();
-
-    }
-
-    stack = [];
-    finishTimes = [];
-    baseTime = getTimer();
-  };
-
-  Akari.intoProcess = function( id )
-  {
-    stack.push( [ id, getTimer(), 0 ] );
-    Global._set( "__stack_akari", stack.join( " | " ) );
-  };
-
-  Akari.outOfProcess = function()
-  {
-    var data = stack.pop();
-    Global._set( "__stack_akari", stack.join( " | " ) );
-    if ( data )
-    {
-      var delta = getTimer() - data[ 1 ] - data[ 2 ];
-      if ( stack.length > 0 )
-      {
-        stack[ stack.length - 1 ][ 2 ] += delta + data[ 2 ];
-      }
-      finishTimes[ 0 + data[ 0 ] ] = finishTimes[ 0 + data[ 0 ] ] ? delta + finishTimes[ 0 + data[ 0 ] ] : delta;
-    }
-  };
-
-  Akari.traceStack = function()
-  {
-    trace( Global._get( "__stack_akari" ) );
-  };
-
-  Akari.registerProcess = function( name, color )
-  {
-    var id = names.length;
-    Akari.processID[ "" + name ] = id;
-    names[ id ] = name;
-    colors[ id ] = color;
-  };
-
-  Akari.registerProcess( "FLASH", 0xFFFFFF );
-  Akari.registerProcess( "COMP", 0xFF0000 );
-  Akari.registerProcess( "SORT", 0x00FF00 );
-  Akari.registerProcess( "LAYER", 0x0000FF );
-  Akari.registerProcess( "BINDER", 0xFFFF00 );
-  Akari.registerProcess( "KEYFR", 0x00FFFF );
-  Akari.registerProcess( "CURVE", 0xFF00FF );
-
-  Akari.registerProcess( "USER", 0x808080 );
-
-} )();
 
 /* Namespace: Akari.Utilities
  * Provide utilities not directly related to presenting content.
@@ -588,17 +478,14 @@ Akari.Utilities.Binder = function()
        */
       update : function( time, scope )
       {
-        Akari.intoProcess( Akari.processID.BINDER );
 
         for ( var i = loopStart; i < registry.length; i ++ )
         {
           switch ( registry[ i ][ 2 ] )
           {
             case 100 :
-              Akari.intoProcess( Akari.processID.USER );
 
               registry[ i ][ 4 ] = registry[ i ][ 1 ].apply( scope || params.object, [ time ] );
-              Akari.outOfProcess();
 
               break;
             case 200 :
@@ -615,17 +502,13 @@ Akari.Utilities.Binder = function()
               }
 
               funcArgs.push( time );
-              Akari.intoProcess( Akari.processID.USER );
 
               registry[ i ][ 4 ] = registry[ i ][ 1 ].linkFunc.apply( scope || params.object, funcArgs );
-              Akari.outOfProcess();
 
               break;
             case 300 :
-              Akari.intoProcess( Akari.processID.USER );
 
               registry[ i ][ 4 ] = registry[ i ][ 1 ].multiFunc.apply( scope || params.object, [ time ] );
-              Akari.outOfProcess();
 
               var names = registry[ i ][ 1 ].names;
 
@@ -637,7 +520,6 @@ Akari.Utilities.Binder = function()
           }
           setParam( params.object, registry[ i ][ 0 ], registry[ i ][ 4 ] );
         }
-        Akari.outOfProcess();
 
       }
     };
@@ -1250,7 +1132,6 @@ Akari.Animation.Polyline = function()
 
   var evaluateAtLength = function( length )
   {
-    Akari.intoProcess( Akari.processID.CURVE );
 
     var i = 0;
 
@@ -1309,7 +1190,6 @@ Akari.Animation.Polyline = function()
     {
       ret.unshift( p2[ d ] * t + p1[ d ] * ( 1 - t ) );
     }
-    Akari.outOfProcess();
 
     return ret;
   };
@@ -2159,7 +2039,6 @@ Akari.Animation.KeyframesBind = function( params )
   // Return the binding function
   return function( time )
   {
-    Akari.intoProcess( Akari.processID.KEYFR );
 
     var newTime = applyRangeBehavior ? applyRangeBehavior( time ) : time;
     
@@ -2174,13 +2053,11 @@ Akari.Animation.KeyframesBind = function( params )
       
       if ( currentKey.mode === Akari.Animation.KeyframeMode.affectNext )
       {
-        Akari.outOfProcess();
 
         return currentKey.interpolation( tFactor, currentKey.value, nextKey.value );
       }
       else if ( currentKey.mode === Akari.Animation.KeyframeMode.useNext )
       {
-        Akari.outOfProcess();
 
         return nextKey.interpolation( tFactor, currentKey.value, nextKey.value );
       }
@@ -2191,14 +2068,12 @@ Akari.Animation.KeyframesBind = function( params )
         
         var weight1 = currentKey.weight * ( 1 - tFactor );
         var weight2 = nextKey.weight * tFactor;
-        Akari.outOfProcess();
 
         return ( value1 * weight1 + value2 * weight2 ) / ( weight1 + weight2 );
       }
     }
     else
     {
-      Akari.outOfProcess();
 
       // When there is not a next keyframe for some reason, just return the current value
       return currentKey.value;
@@ -2519,17 +2394,13 @@ Akari.Display.Composition = function( params )
         return this.update( startTime );
       if ( time >= startTime + duration )
         return this.update( startTime + duration - 1 );
-      Akari.intoProcess( Akari.processID.COMP );
 
       for ( var i = layers.length; i --; )
       {
-        Akari.intoProcess( Akari.processID.LAYER );
 
         layers[ 0 + i ].update( time );
-        Akari.outOfProcess();
 
       }
-      Akari.outOfProcess();
 
     },
     
@@ -2579,18 +2450,10 @@ Akari.Display.MainComposition = function( params )
   
   // Remember the player size to maintain scalability
   var lastWidth, lastHeight;
-  var perfInterval = 30;
 
   // Prepare the frame function, need a private handle for removing.
   var frameFunction = function()
   {
-    Akari.outOfProcess();
-    perfInterval --;
-    if ( perfInterval === 0 )
-    {
-      Akari.updatePerformanceDisplay();
-      perfInterval = 30;
-    }
 
     // Check if player is running
     if ( Player.state === "playing" )
@@ -2615,7 +2478,6 @@ Akari.Display.MainComposition = function( params )
       lastWidth = $.width;
       lastHeight = $.height;
     }
-    Akari.intoProcess( Akari.processID.FLASH );
 
   };
   
@@ -3614,10 +3476,8 @@ Akari.Display.Three.ThreeContainer = function()
       },
       update : function()
       {
-        Akari.intoProcess( Akari.processID.SORT );
 
         sortContainer.apply( this, [ doc, cont, relatedData ] );
-        Akari.outOfProcess();
 
       },
       canvas : doc
@@ -3761,14 +3621,11 @@ Akari.Display.Three.ThreeComposition = function( params )
         return this.update( startTime );
       if ( time >= startTime + duration )
         return this.update( startTime + duration - 1 );
-      Akari.intoProcess( Akari.processID.COMP );
 
       for ( var i = layers.length; i --; )
       {
-        Akari.intoProcess( Akari.processID.LAYER );
 
         layers[ 0 + i ].update( time );
-        Akari.outOfProcess();
 
       }
 
@@ -3800,7 +3657,6 @@ Akari.Display.Three.ThreeComposition = function( params )
 
       // sort
       container.update( time );
-      Akari.outOfProcess();
 
     },
     

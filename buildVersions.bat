@@ -13,6 +13,7 @@
 :: INCL_RAND   - [ true] includes Akari.Utilties.Randomizer. When off other classes that depend on this might also get removed.
 :: INCL_SHAND  - [ true] includes Checkerboard and Anchors.
 
+build.rb -o "BuildOutput/Akari.biliScript"
 build.rb -o "BuildOutput/Akari.min.biliScript" -strip comments
 build.rb -o "BuildOutput/Akari.Essence.min.biliScript" -v "essence" -def "INCL_ANIM=false;INCL_TEXT=false;INCL_FX=false;INCL_THREE=false;INCL_COLOR=false;INCL_VECTOR=false;INCL_RAND=false;INCL_SHAND=false;" -strip comments
 build.rb -o "BuildOutput/Akari.Debug.biliScript" -v "debug" -def "DEBUG=true;PERF_VISUAL=true;"
