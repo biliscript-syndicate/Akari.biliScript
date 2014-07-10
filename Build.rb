@@ -156,6 +156,11 @@ if FileTest.exists?( template_file )
       end
     end
 
+    # fix semicolon insertion
+    template_string.gsub!( /return\s*\n+\s*\{/ ) do |s|
+      next "return {"
+    end
+
     if strip_comments
       # exempt first block comment (license)
       first_block = nil

@@ -1,5 +1,5 @@
-/* Akari.biliScript - v20130730 debug
- * Copyright (C) 2013 
+/* Akari.biliScript - v20140710 debug
+ * Copyright (C) 2014 
  * <https://github.com/akaza-akari/Akari.biliScript>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -385,8 +385,7 @@ Akari.Utilities.Timer = function()
   var deltaTime = 0;
   var sampleCount = 1;
   
-  return
-  {
+  return {
     time : 0,
     
     /* Function: update
@@ -574,8 +573,7 @@ Akari.Utilities.Binder = function()
       }
     }
     
-    return
-    {
+    return {
       
       /* Function: update
        * Updates the object to fit the timeline.
@@ -657,8 +655,7 @@ Akari.Utilities.Binder = function()
    */
   binderClass.Link = function( params )
   {
-    return
-    {
+    return {
       names : params.names || [ params.name ],
       linkFunc : params.linkFunc || null
     };
@@ -673,8 +670,7 @@ Akari.Utilities.Binder = function()
    */
   binderClass.Multi = function( params )
   {
-    return
-    {
+    return {
       names : params.names,
       multiFunc : params.func
     };
@@ -1071,8 +1067,7 @@ Akari.Animation.BezierComponent = function()
 
   return function( cp )
   {
-    return
-    {
+    return {
       cp : cp,
       calcBezier : calcBezier,
       calcSlope : calcSlope
@@ -1213,8 +1208,7 @@ Akari.Animation.Spline = function()
       length += segLength;
     }
 
-    return
-    {
+    return {
       // Spline
       curves : curves,
       concat : concat,
@@ -1358,8 +1352,7 @@ Akari.Animation.Polyline = function()
       length += segLength;
     }
 
-    return
-    {
+    return {
       points : points,
       segmentsLength : segmentsLength,
       segmentsPosition : segmentsPosition,
@@ -1564,8 +1557,7 @@ Akari.Animation.Bezier = function()
       compo[ d ] = Akari.Animation.BezierComponent( cp[ d ] );
     }
 
-    return
-    {
+    return {
       // Bezier
       points : points,
       cp : cp,
@@ -2071,8 +2063,7 @@ Akari.Animation.KeyframeMode =
  */
 Akari.Animation.Keyframe = function( params )
 {
-  return
-  {
+  return {
     time : params.time,
     value : params.value,
     interpolation : params.interpolation || Akari.Animation.Interpolation.linear,
@@ -2497,8 +2488,7 @@ Akari.Display.Composition = function( params )
     layers[ i ].parent = this;
   }
   
-  return
-  {
+  return {
     width : params.width || $.width,
     height : params.height || $.height,
     startTime : params.startTime || 0,
@@ -2703,8 +2693,7 @@ Akari.Display.Animation = function( params )
   
   var canvas = Akari.Display.Shape();
   
-  return
-  {
+  return {
     startTime : 0,
     duration : params.frames.length * 1000 / frameRate,
     canvas : canvas,
@@ -3140,8 +3129,7 @@ Akari.Display.Text.RangeSelector = function( params )
   // See if we need to operate on characters
   if ( !params.basis || params.basis === "characters" )
   {
-    return
-    {
+    return {
       select : function( time, linesContainer, callback )
       {
         propsBinder.update( time );
@@ -3173,8 +3161,7 @@ Akari.Display.Text.RangeSelector = function( params )
   }
   else
   {
-    return
-    {
+    return {
       select : function( time, linesContainer, callback )
       {
         propsBinder.update( time );
@@ -3224,8 +3211,7 @@ Akari.Display.Text.Animator = function( params )
     });
   };
   
-  return
-  {
+  return {
     apply : function( time, linesContainer )
     {
       propsBinder.update( time );
@@ -3739,8 +3725,7 @@ Akari.Display.Three.ThreeComposition = function( params )
   centerMatrix.appendTranslation( ( params.width || $.width ) / 2, ( params.height || $.height ) / 2, 0 );
   var centerPoint = $.createVector3D( ( params.width || $.width ) / 2, ( params.height || $.height ) / 2, 0 );
   
-  return
-  {
+  return {
     width : params.width || $.width,
     height : params.height || $.height,
     startTime : params.startTime || 0,
