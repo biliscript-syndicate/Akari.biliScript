@@ -1,4 +1,4 @@
-////#IF (EVAL ( arguments[ "-s" ] || arguments[ "-strip" ] ))
+//#IF (EVAL ( arguments[ "-s" ] || arguments[ "-strip" ] ))
 /* Akari.biliScript - {{AkariTemplate : Version}}
  * Copyright (C) {{AkariTemplate : Year}} {{AkariTemplate : Rightholder}}
  * This copy is minimized: access source from the github page below.
