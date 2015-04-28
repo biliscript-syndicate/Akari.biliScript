@@ -54,4 +54,4 @@ You are welcome to make any improvements to the Akari.* namespaces, to write you
 License
 -------
 
-Akari.biliScript is licensed under GNU GPLv3. Please read Akari.Template.biliScript for details.
+Akari.biliScript is licensed under GNU GPLv3. Please read Akari.Template.biliScript for details. 
